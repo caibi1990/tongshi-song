@@ -700,7 +700,7 @@ function renderHome(){
         <div class="review-info" style="color:var(--pri)">复习计划：${schedule}</div>
         <div class="btn-row">
           <button class="btn btn-pri" data-action="open-learn" data-id="${p.id}">📖 练习背诵</button>
-          <button class="info-btn" data-action="show-info" data-id="${p.id}">💡 知识</button>
+          <button class="info-btn" data-action="show-info" data-id="${p.id}">💡 关于《${p.t}》</button>
         </div><div id="homeInfo_${p.id}"></div></div>`;
     });
   }
@@ -733,7 +733,7 @@ function renderHome(){
         <div class="review-info">${stageLabel}</div>
         <div class="btn-row">
           <button class="btn btn-rev btn-sm" data-action="open-review" data-id="${p.id}">🔄 开始复习</button>
-          <button class="info-btn" data-action="show-info" data-id="${p.id}">💡 知识</button>
+          <button class="info-btn" data-action="show-info" data-id="${p.id}">💡 关于《${p.t}》</button>
         </div><div id="homeInfo_${p.id}"></div></div>`;
     });
   }
@@ -952,7 +952,7 @@ function renderModal(){
   html+=`</div>`;
 
   // Info toggle button
-  html+=`<div style="text-align:center;margin-bottom:8px"><button class="info-btn modal-info-btn" data-action="show-info" data-id="${p.id}">💡 知识</button></div>`;
+  html+=`<div style="text-align:center;margin-bottom:8px"><button class="info-btn modal-info-btn" data-action="show-info" data-id="${p.id}">💡 关于《${p.t}》</button></div>`;
   html+=`<div id="infoPanelArea"></div>`;
 
   // TTS bar
@@ -1141,6 +1141,7 @@ function renderInfoPanel(poemId){
   const au=AUTHORS[p.a];
   const note=POEM_NOTES[p.id];
   let html=`<div class="info-panel">`;
+  html+=`<h3>关于《${p.t}》</h3>`;
 
   // Author card
   if(au){
@@ -1179,13 +1180,14 @@ function renderInfoPanel(poemId){
 }
 
 function toggleInfoPanel(poemId){
-  // Try modal first, then home page cards
-  let area=document.getElementById('infoPanelArea');
-  if(!area){
-    // For home page cards, toggle below the button
+  var modalOpen=document.getElementById('modalOverlay').classList.contains('show');
+  var area;
+  if(modalOpen){
+    area=document.getElementById('infoPanelArea');
+  }else{
     area=document.getElementById('homeInfo_'+poemId);
-    if(!area)return;
   }
+  if(!area)return;
   if(area.innerHTML.trim()){area.innerHTML='';return}
   area.innerHTML=renderInfoPanel(poemId);
 }
