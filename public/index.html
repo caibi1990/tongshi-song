@@ -1045,9 +1045,10 @@ let ttsSpeaking=false;
 
 function findChineseVoice(){
   var voices=speechSynthesis.getVoices();
-  return voices.find(function(v){return /zh.*CN/i.test(v.lang)&&/female|ting|mei|li/i.test(v.name)})
-    ||voices.find(function(v){return v.lang==='zh-CN'})
-    ||voices.find(function(v){return /^zh/i.test(v.lang)})
+  var isCantonese=function(v){return /zh[-_]HK|zh[-_]TW|yue/i.test(v.lang)};
+  return voices.find(function(v){return /zh[-_]CN/i.test(v.lang)&&/female|ting|mei|li|xiao/i.test(v.name)})
+    ||voices.find(function(v){return /zh[-_]CN/i.test(v.lang)})
+    ||voices.find(function(v){return /^zh/i.test(v.lang)&&!isCantonese(v)})
     ||null;
 }
 
