@@ -19,6 +19,18 @@ html,body{height:100%;font-family:-apple-system,"PingFang SC","Helvetica Neue","
 .header{padding:16px 20px 8px;display:flex;align-items:center;gap:12px;flex-shrink:0}
 .header h1{font-size:20px;font-weight:700;flex:1}
 .header .streak{background:var(--pri-l);color:var(--pri-d);font-size:13px;font-weight:600;padding:4px 12px;border-radius:20px;white-space:nowrap}
+.header .about-link{font-size:12px;color:var(--sub);cursor:pointer;white-space:nowrap;text-decoration:underline;text-underline-offset:2px}
+.header .about-link:active{color:var(--pri)}
+.about-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:none;align-items:center;justify-content:center;padding:20px}
+.about-overlay.show{display:flex}
+.about-box{background:var(--card);border-radius:20px;padding:32px 24px;max-width:380px;width:100%;max-height:80vh;overflow-y:auto;position:relative;animation:popIn .3s}
+.about-box .close-btn{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:50%;background:#F0F0F0;border:none;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.about-box h2{font-size:20px;margin-bottom:4px}
+.about-box .ver{font-size:12px;color:var(--sub);margin-bottom:20px}
+.about-box .about-section{margin-bottom:18px}
+.about-box .about-section h3{font-size:14px;color:var(--pri-d);margin-bottom:6px}
+.about-box .about-section p{font-size:14px;line-height:1.8;color:#555}
+.about-box .about-footer{text-align:center;font-size:12px;color:var(--sub);padding-top:16px;border-top:1px solid #EEE}
 .main{flex:1;overflow-y:auto;padding:8px 20px 20px;-webkit-overflow-scrolling:touch}
 .page{display:none}.page.active{display:block}
 .progress-bar{height:6px;background:#EEE;border-radius:3px;margin:0 20px 4px;overflow:hidden}
@@ -196,7 +208,8 @@ html,body{height:100%;font-family:-apple-system,"PingFang SC","Helvetica Neue","
 <body>
 <div id="app">
   <div class="header">
-    <h1>📖 古诗背诵</h1>
+    <h1>📖 古诗背诵 <span style="font-size:11px;color:var(--sub);font-weight:400">v0.0.1</span></h1>
+    <span class="about-link" data-action="open-about">关于</span>
     <div class="streak" id="streakBadge">🔥 <span id="streakNum">0</span>天</div>
   </div>
   <div class="progress-bar"><div class="fill" id="progressFill" style="width:0%"></div></div>
@@ -224,6 +237,34 @@ html,body{height:100%;font-family:-apple-system,"PingFang SC","Helvetica Neue","
 <div class="success-overlay" id="successOverlay" data-action="close-success">
   <div class="success-box" id="successBox"></div>
 </div>
+
+<div class="about-overlay" id="aboutOverlay" data-action="close-about">
+  <div class="about-box">
+    <button class="close-btn" data-action="close-about">✕</button>
+    <h2>📖 亚迪古诗背诵</h2>
+    <div class="ver">v0.0.1</div>
+    <div class="about-section">
+      <h3>这是什么</h3>
+      <p>一个帮助孩子背诵古诗的小工具。收录 116 首经典古诗，采用艾宾浩斯遗忘曲线科学安排复习计划，让记忆更牢固。</p>
+    </div>
+    <div class="about-section">
+      <h3>怎么用</h3>
+      <p>每天学一首新诗，系统会自动安排 1天、3天、7天、14天、29天、59天 共 6 次复习。复习时可以逐步隐藏诗句，检验背诵效果。完成全部 6 次复习后，这首诗就标记为"已掌握"。</p>
+    </div>
+    <div class="about-section">
+      <h3>功能特色</h3>
+      <p>· 116 首经典古诗，含作者介绍和诗意解读<br>
+      · 艾宾浩斯间隔复习，科学高效<br>
+      · 朗读功能，支持调节语速<br>
+      · 背诵遮罩模式，逐步加深记忆<br>
+      · 学习日历，一目了然</p>
+    </div>
+    <div class="about-footer">
+      学习数据保存在本地浏览器中<br>清除浏览器数据会丢失进度
+    </div>
+  </div>
+</div>
+
 <canvas class="confetti" id="confetti"></canvas>
 
 <script>
@@ -1268,6 +1309,11 @@ document.addEventListener('click',function(e){
       renderHome();break;
     case 'show-info':
       toggleInfoPanel(id);break;
+    case 'open-about':
+      document.getElementById('aboutOverlay').classList.add('show');break;
+    case 'close-about':
+      if(e.target===document.getElementById('aboutOverlay')||el.dataset.action==='close-about'&&el.classList.contains('close-btn'))
+        document.getElementById('aboutOverlay').classList.remove('show');break;
     case 'tts-read':
       speakPoem();break;
     case 'tts-speed':
