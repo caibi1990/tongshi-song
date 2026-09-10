@@ -1139,20 +1139,39 @@ function peekChar(el){
   },2000);
 }
 
+var _confirmTimer=null;
 function completeCurrent(){
   if(!currentPoem)return;
-  const p=getPoemState(currentPoem.id);
-  const isInitialLearn=p&&p.learnDate===today();
+  var btn=document.querySelector('[data-action="complete"]');
+  if(!btn)return;
+  // First click: show confirmation state
+  if(!btn.classList.contains('confirming')){
+    btn.classList.add('confirming');
+    btn.innerHTML='✅ 确认背完了？再点一次';
+    btn.style.background='var(--pri)';
+    _confirmTimer=setTimeout(function(){
+      btn.classList.remove('confirming');
+      btn.innerHTML='✅ 背完了！';
+      btn.style.background='';
+    },3000);
+    return;
+  }
+  // Second click: actually complete
+  clearTimeout(_confirmTimer);_confirmTimer=null;
+  btn.classList.remove('confirming');
+  btn.style.background='';
+  var p=getPoemState(currentPoem.id);
+  var isInitialLearn=p&&p.learnDate===today();
   if(!isInitialLearn&&currentMode==='review')completeReview(currentPoem.id);
   closeModal();
-  const stageAfter=getCurrentStage(currentPoem.id);
-  let msg,sub;
+  var stageAfter=getCurrentStage(currentPoem.id);
+  var msg,sub;
   if(stageAfter>=INTERVALS.length){
-    msg='🎉 已掌握！';sub=`《${currentPoem.t}》已经彻底学会了！`;
+    msg='🎉 已掌握！';sub='《'+currentPoem.t+'》已经彻底学会了！';
   }else{
     msg=ENCOURAGE[Math.floor(Math.random()*ENCOURAGE.length)];
-    const nrd=getNextReviewDate(currentPoem.id);
-    sub=nrd?`下次复习：${nrd}`:'继续加油！';
+    var nrd=getNextReviewDate(currentPoem.id);
+    sub=nrd?'下次复习：'+nrd:'继续加油！';
   }
   showSuccess(msg,sub);
   updateHeader();
