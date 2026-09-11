@@ -39,14 +39,24 @@ app.get('/api/homework', async (req, res) => {
     const date = req.query.date || new Date().toISOString().slice(0, 10);
     const token = await getTenantToken();
 
-    // Build filter: date field equals the requested date
+    // Build filter: date field matches the requested date (full day range)
+    // Bitable datetime fields store millisecond timestamps
+    const [y, m, d] = date.split('-').map(Number);
+    const dayStart = new Date(y, m - 1, d, 0, 0, 0).getTime();
+    const dayEnd = new Date(y, m - 1, d, 23, 59, 59).getTime();
+
     const filter = {
       conjunction: 'and',
       conditions: [
         {
           field_name: '日期',
-          operator: 'is',
-          value: [date],
+          operator: 'isGreater',
+          value: [String(dayStart - 1)],
+        },
+        {
+          field_name: '日期',
+          operator: 'isLess',
+          value: [String(dayEnd + 1)],
         },
       ],
     };
