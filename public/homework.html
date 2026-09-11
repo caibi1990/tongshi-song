@@ -337,18 +337,44 @@
     .img-preview-overlay .preview-tip {
       color: #fff;
       font-size: 14px;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       text-align: center;
       opacity: 0.85;
     }
     .img-preview-overlay .preview-img {
       max-width: 100%;
-      max-height: 75vh;
+      max-height: 72vh;
       border-radius: 4px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
+    .preview-gallery {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .preview-gallery .page-nav {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      width: 36px; height: 36px;
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .preview-gallery .page-nav:active { background: rgba(255,255,255,0.3); }
+    .preview-gallery .page-nav:disabled { opacity: 0.3; cursor: default; }
+    .preview-gallery .page-indicator {
+      color: #fff;
+      font-size: 14px;
+      min-width: 60px;
+      text-align: center;
+    }
     .img-preview-overlay .preview-close {
-      margin-top: 16px;
+      margin-top: 12px;
       background: rgba(255,255,255,0.15);
       border: 1px solid rgba(255,255,255,0.3);
       border-radius: 20px;
@@ -430,6 +456,11 @@
   <div class="img-preview-overlay" id="imgPreviewOverlay">
     <div class="preview-tip">长按图片保存到相册，即可打印</div>
     <img class="preview-img" id="previewImg" alt="作业图片">
+    <div class="preview-gallery" id="previewGallery" style="display:none">
+      <button class="page-nav" id="prevPage" data-action="prev-page">&#8249;</button>
+      <span class="page-indicator" id="pageIndicator">1 / 1</span>
+      <button class="page-nav" id="nextPage" data-action="next-page">&#8250;</button>
+    </div>
     <button class="preview-close" data-action="close-img-preview">关闭</button>
   </div>
 
@@ -673,6 +704,21 @@
       }
       if (action === 'close-img-preview') {
         document.getElementById('imgPreviewOverlay').classList.remove('show');
+        window.__exportPages = [];
+        window.__exportPageIdx = 0;
+      }
+      if (action === 'prev-page') {
+        if (window.__exportPageIdx > 0) {
+          window.__exportPageIdx--;
+          showExportPage();
+        }
+      }
+      if (action === 'next-page') {
+        const pages = window.__exportPages || [];
+        if (window.__exportPageIdx < pages.length - 1) {
+          window.__exportPageIdx++;
+          showExportPage();
+        }
       }
       if (action === 'lightbox') {
         const src = target.dataset.src;
@@ -689,9 +735,11 @@
       }
     });
 
-    // --- Export as A4 Image ---
+    // --- Export as A4 Image (multi-page) ---
     let html2canvasLoaded = false;
     let html2canvasLoading = false;
+    window.__exportPages = [];
+    window.__exportPageIdx = 0;
 
     function loadHtml2Canvas() {
       return new Promise((resolve, reject) => {
@@ -706,61 +754,111 @@
       });
     }
 
-    function buildA4Content(items, dateStr) {
-      const zone = document.getElementById('a4RenderZone');
-      const formattedDate = formatDate(dateStr);
-      let html = `<div style="
+    // Build HTML for a single subject card
+    function buildCardHTML(item) {
+      const subj = SUBJECT_MAP[item.subject] || { icon: '📋', label: item.subject };
+      const contentText = (item.content || '').replace(/\\n/g, '\n').replace(/\n/g, '<br>');
+      return `<div class="a4-card" style="
+        border: 1px solid #e8e8e8;
+        border-radius: 10px;
+        padding: 20px 22px;
+        margin-bottom: 18px;
+      ">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <span style="font-size:20px;">${subj.icon}</span>
+          <span style="font-size:18px;font-weight:600;flex:1;">${subj.label}</span>
+          <span style="font-size:12px;color:#999;">${item.teacher || ''}</span>
+        </div>
+        <div style="font-size:14px;line-height:2;color:#444;">${contentText}</div>
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f0f0f0;font-size:12px;color:#999;display:flex;justify-content:space-between;">
+          <span>截止：${item.deadline || '-'}</span>
+          ${item.submitMethod ? `<span style="background:#e8f5e9;color:#2e7d32;padding:1px 8px;border-radius:3px;">提交：${item.submitMethod}</span>` : ''}
+        </div>
+      </div>`;
+    }
+
+    // Build a full A4 page wrapping given card HTML strings
+    function buildA4PageHTML(cardHTMLs, dateStr, pageNum, totalPages) {
+      const pageLabel = totalPages > 1 ? `（${pageNum + 1}/${totalPages}）` : '';
+      return `<div class="a4-page" style="
         width: 794px;
         min-height: 1123px;
         padding: 50px 56px;
+        box-sizing: border-box;
         font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
         background: #fff;
         color: #333;
       ">
-        <div style="text-align:center;margin-bottom:32px;">
-          <div style="font-size:26px;font-weight:700;color:#333;">今日作业</div>
-          <div style="font-size:14px;color:#888;margin-top:6px;">${formattedDate}</div>
-        </div>`;
-
-      for (const item of items) {
-        const subj = SUBJECT_MAP[item.subject] || { icon: '📋', label: item.subject };
-        const contentText = (item.content || '').replace(/\\n/g, '\n').replace(/\n/g, '<br>');
-        html += `
-        <div style="
-          border: 1px solid #e8e8e8;
-          border-radius: 10px;
-          padding: 20px 22px;
-          margin-bottom: 18px;
-          page-break-inside: avoid;
-        ">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-            <span style="font-size:20px;">${subj.icon}</span>
-            <span style="font-size:18px;font-weight:600;flex:1;">${subj.label}</span>
-            <span style="font-size:12px;color:#999;">${item.teacher || ''}</span>
-          </div>
-          <div style="font-size:14px;line-height:2;color:#444;">${contentText}</div>
-          <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f0f0f0;font-size:12px;color:#999;display:flex;justify-content:space-between;">
-            <span>截止：${item.deadline || '-'}</span>
-            ${item.submitMethod ? `<span style="background:#e8f5e9;color:#2e7d32;padding:1px 8px;border-radius:3px;">提交：${item.submitMethod}</span>` : ''}
-          </div>
-        </div>`;
-      }
-
-      html += `
-        <div style="text-align:center;font-size:11px;color:#ccc;margin-top:32px;padding-top:16px;border-top:1px solid #f0f0f0;">
-          亚迪学校 · 明悦三班 · 学习助手
+        <div style="text-align:center;margin-bottom:28px;">
+          <div style="font-size:26px;font-weight:700;color:#333;">今日作业${pageLabel}</div>
+          <div style="font-size:14px;color:#888;margin-top:6px;">${dateStr}</div>
+        </div>
+        ${cardHTMLs.join('')}
+        <div style="text-align:center;font-size:11px;color:#ccc;margin-top:auto;padding-top:16px;border-top:1px solid #f0f0f0;">
+          本页面数据来源于班级小管家，仅供家庭学习参考，请以老师发布的原始信息为准。
         </div>
       </div>`;
+    }
 
-      zone.innerHTML = html;
-      return zone;
+    // Show current page in preview overlay
+    function showExportPage() {
+      const pages = window.__exportPages || [];
+      const idx = window.__exportPageIdx;
+      if (!pages.length) return;
+      document.getElementById('previewImg').src = pages[idx];
+      const gallery = document.getElementById('previewGallery');
+      if (pages.length > 1) {
+        gallery.style.display = 'flex';
+        document.getElementById('pageIndicator').textContent = `${idx + 1} / ${pages.length}`;
+        document.getElementById('prevPage').disabled = idx === 0;
+        document.getElementById('nextPage').disabled = idx === pages.length - 1;
+      } else {
+        gallery.style.display = 'none';
+      }
+    }
+
+    // Measure card heights by rendering in hidden A4-width container
+    async function measureCardHeights(items) {
+      const zone = document.getElementById('a4RenderZone');
+      // Build a measurement container with same A4 width and padding
+      let measureHTML = `<div style="width:794px;padding:0 56px;box-sizing:border-box;font-family:-apple-system,'PingFang SC','Helvetica Neue',sans-serif;">`;
+      for (const item of items) {
+        measureHTML += buildCardHTML(item);
+      }
+      measureHTML += `</div>`;
+      zone.innerHTML = measureHTML;
+      await new Promise(r => requestAnimationFrame(r));
+      const cards = zone.querySelectorAll('.a4-card');
+      const heights = [];
+      cards.forEach(c => heights.push(c.offsetHeight));
+      zone.innerHTML = '';
+      return heights;
+    }
+
+    // Greedy pack: fit cards into pages, each page has maxContentHeight available
+    function packIntoPages(heights, maxContentHeight) {
+      const pages = []; // each page is an array of card indices
+      let currentPage = [];
+      let currentHeight = 0;
+      for (let i = 0; i < heights.length; i++) {
+        const cardH = heights[i];
+        // If adding this card would overflow current page (and page is not empty)
+        if (currentPage.length > 0 && currentHeight + cardH > maxContentHeight) {
+          pages.push(currentPage);
+          currentPage = [];
+          currentHeight = 0;
+        }
+        currentPage.push(i);
+        currentHeight += cardH;
+      }
+      if (currentPage.length > 0) pages.push(currentPage);
+      return pages;
     }
 
     async function exportAsImage() {
       const btn = document.getElementById('exportBtn');
       if (btn.disabled) return;
 
-      // Check if there are cards to export
       const cards = document.querySelectorAll('.card');
       if (cards.length === 0) {
         alert('当前没有作业内容可导出');
@@ -773,12 +871,11 @@
       try {
         await loadHtml2Canvas();
 
-        // Get current items from the DOM data
+        // Extract items from DOM
         const items = [];
-        cards.forEach((card, i) => {
+        cards.forEach((card) => {
           const title = card.querySelector('.card-title');
           const meta = card.querySelector('.card-meta');
-          const body = card.querySelector('.card-body');
           const footer = card.querySelector('.card-footer');
           const submitTag = card.querySelector('.submit-tag');
           items.push({
@@ -790,24 +887,43 @@
           });
         });
 
-        const renderZone = buildA4Content(items, currentDate);
+        // Step 1: Measure each card's actual height
+        const heights = await measureCardHeights(items);
 
-        // Wait a frame for rendering
-        await new Promise(r => requestAnimationFrame(r));
+        // Step 2: Pack into pages
+        // A4 content area: 1123 - 50(top) - 50(bottom) - 70(header) - 50(footer) ≈ 903px
+        const MAX_CONTENT_HEIGHT = 903;
+        const pageGroups = packIntoPages(heights, MAX_CONTENT_HEIGHT);
+        const totalPages = pageGroups.length;
 
-        const canvas = await html2canvas(renderZone.firstElementChild, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-        });
+        // Step 3: Render each page
+        const zone = document.getElementById('a4RenderZone');
+        const formattedDate = formatDate(currentDate);
+        const pageImages = [];
 
-        const dataUrl = canvas.toDataURL('image/png');
-        document.getElementById('previewImg').src = dataUrl;
+        for (let p = 0; p < totalPages; p++) {
+          btn.textContent = `⏳ ${p + 1}/${totalPages}...`;
+          const cardHTMLs = pageGroups[p].map(idx => buildCardHTML(items[idx]));
+          zone.innerHTML = buildA4PageHTML(cardHTMLs, formattedDate, p, totalPages);
+          await new Promise(r => requestAnimationFrame(r));
+
+          const pageEl = zone.querySelector('.a4-page');
+          const canvas = await html2canvas(pageEl, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+          });
+          pageImages.push(canvas.toDataURL('image/png'));
+        }
+
+        // Step 4: Show gallery
+        zone.innerHTML = '';
+        window.__exportPages = pageImages;
+        window.__exportPageIdx = 0;
+        showExportPage();
         document.getElementById('imgPreviewOverlay').classList.add('show');
 
-        // Clean up render zone
-        renderZone.innerHTML = '';
       } catch (err) {
         console.error('Export failed:', err);
         alert('导出失败：' + err.message);
