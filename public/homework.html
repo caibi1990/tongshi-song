@@ -509,6 +509,12 @@
 
     // Init
     loadHomework(currentDate);
+
+    // Show about overlay on first visit
+    if (!localStorage.getItem('hw-about-seen')) {
+      document.getElementById('aboutOverlay').classList.add('show');
+      localStorage.setItem('hw-about-seen', '1');
+    }
   </script>
 </body>
 </html>
