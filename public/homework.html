@@ -411,7 +411,7 @@
 
   <!-- Lightbox Overlay for attachment photos -->
   <div class="lightbox-overlay" id="lightboxOverlay" data-action="close-lightbox">
-    <img id="lightboxImg" alt="附件大图">
+    <img id="lightboxImg" alt="附件大图" referrerpolicy="no-referrer">
   </div>
 
   <!-- Hidden A4 render zone -->
@@ -490,7 +490,7 @@
           if (photos.length || videos.length) {
             mediaHtml = '<div class="card-media">';
             for (const url of photos) {
-              mediaHtml += `<img src="${url}" alt="作业附件" loading="lazy" data-action="lightbox" data-src="${url}">`;
+              mediaHtml += `<img src="${url}" alt="作业附件" loading="lazy" referrerpolicy="no-referrer" data-action="lightbox" data-src="${url}">`;
             }
             for (const url of videos) {
               mediaHtml += `<video controls preload="metadata" playsinline><source src="${url}" type="video/mp4">您的浏览器不支持视频播放</video>`;
