@@ -30,6 +30,52 @@
     }
     .header .back-link:active { opacity: 0.5; }
     .header h1 { font-size: 20px; font-weight: 600; flex: 1; }
+    .header .about-link {
+      color: #fff;
+      font-size: 12px;
+      opacity: 0.7;
+      flex-shrink: 0;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .header .about-link:active { opacity: 1; }
+    .about-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .about-overlay.show { display: flex; }
+    .about-box {
+      background: #fff;
+      border-radius: 20px;
+      padding: 32px 24px;
+      max-width: 380px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+      animation: popIn 0.3s;
+    }
+    @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .about-box .close-btn {
+      position: absolute; top: 12px; right: 12px;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #f0f0f0; border: none; font-size: 16px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .about-box h2 { font-size: 18px; margin-bottom: 16px; color: #333; }
+    .about-box .about-section { margin-bottom: 16px; }
+    .about-box .about-section h3 { font-size: 14px; color: #4facfe; margin-bottom: 6px; }
+    .about-box .about-section p { font-size: 13px; line-height: 1.8; color: #555; }
+    .about-box .about-footer {
+      text-align: center; font-size: 12px; color: #999;
+      padding-top: 14px; border-top: 1px solid #eee;
+    }
     .header .date {
       font-size: 14px;
       opacity: 0.85;
@@ -205,8 +251,9 @@
 </head>
 <body>
   <div class="header">
-    <a href="/" class="back-link">← 首页</a>
+    <a href="/index.html" class="back-link">← 首页</a>
     <h1>今日作业</h1>
+    <span class="about-link" data-action="open-about">关于</span>
     <div class="date" id="headerDate"></div>
   </div>
   <div class="date-nav">
@@ -222,6 +269,31 @@
   </div>
   <div class="content" id="content">
     <div class="loading">加载中</div>
+  </div>
+
+  <!-- About Overlay -->
+  <div class="about-overlay" id="aboutOverlay">
+    <div class="about-box">
+      <button class="close-btn" data-action="close-about">✕</button>
+      <h2>关于今日作业</h2>
+      <div class="about-section">
+        <h3>数据来源</h3>
+        <p>作业内容每天 17:30 由 AI 助手自动从「班级小管家」平台提取，按学科整理后写入数据库，本页面实时展示最新数据。</p>
+      </div>
+      <div class="about-section">
+        <h3>可能不准确的情况</h3>
+        <p>由于提取过程依赖 AI 浏览器自动化，以下情况可能导致当天作业未能及时更新：</p>
+        <p style="margin-top:6px">· 电脑关机或休眠，定时任务无法执行<br>
+        · 网络波动导致访问班级小管家失败<br>
+        · 班级小管家页面改版，自动化流程需要适配<br>
+        · 老师发布时间晚于 17:30，当天批次已错过</p>
+      </div>
+      <div class="about-section">
+        <h3>遇到问题？</h3>
+        <p>如果发现当天作业为空或内容不对，可以手动触发一次重新提取，或联系彭泽恩爸爸帮忙处理。</p>
+      </div>
+      <div class="about-footer">亚迪学校 · 明悦三班 · 作业助手</div>
+    </div>
   </div>
 
   <script>
@@ -425,6 +497,13 @@
         ttsSpeed = parseFloat(target.dataset.speed) || 0.85;
         document.querySelectorAll('.tts-speed-bar .speed-btn').forEach(b => b.classList.remove('active'));
         target.classList.add('active');
+      }
+
+      if (action === 'open-about') {
+        document.getElementById('aboutOverlay').classList.add('show');
+      }
+      if (action === 'close-about') {
+        document.getElementById('aboutOverlay').classList.remove('show');
       }
     });
 
