@@ -11,6 +11,14 @@ const BASE_TOKEN = process.env.BASE_TOKEN || 'TRb8b2HHqaYms8sOoMncuPWInmg';
 const TABLE_ID = process.env.TABLE_ID || 'tblBJk7g3LneCfBV';
 const FEISHU_API = 'https://open.feishu.cn/open-apis';
 
+// --- Helpers ---
+// Bitable text fields return as [{text: "...", type: "text"}, ...] arrays
+function richText(val) {
+  if (Array.isArray(val)) return val.map((seg) => seg.text || '').join('');
+  if (typeof val === 'string') return val;
+  return '';
+}
+
 // --- Token cache ---
 let tokenCache = { token: '', expiresAt: 0 };
 
@@ -75,10 +83,10 @@ app.get('/api/homework', async (req, res) => {
         return {
           date: f['日期'],
           subject: Array.isArray(f['学科']) ? f['学科'][0] : f['学科'],
-          teacher: f['发布人'],
-          deadline: f['截止时间'],
-          content: f['作业内容'],
-          submitMethod: f['提交方式'],
+          teacher: richText(f['发布人']),
+          deadline: richText(f['截止时间']),
+          content: richText(f['作业内容']),
+          submitMethod: richText(f['提交方式']),
         };
       });
       allItems = allItems.concat(items);
