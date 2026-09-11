@@ -158,6 +158,52 @@
       display: flex;
       justify-content: space-between;
     }
+    .card-media {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .card-media img {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 8px;
+      cursor: pointer;
+      object-fit: cover;
+      border: 1px solid #e0e0e0;
+      transition: transform 0.2s;
+    }
+    .card-media img:active { transform: scale(0.97); }
+    .card-media video {
+      width: 100%;
+      max-height: 240px;
+      border-radius: 8px;
+      background: #000;
+    }
+    .media-label {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .lightbox-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+    .lightbox-overlay.show { display: flex; }
+    .lightbox-overlay img {
+      max-width: 95vw;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 4px;
+    }
     .submit-tag {
       background: #e8f5e9;
       color: #2e7d32;
@@ -363,6 +409,11 @@
     <button class="preview-close" data-action="close-img-preview">关闭</button>
   </div>
 
+  <!-- Lightbox Overlay for attachment photos -->
+  <div class="lightbox-overlay" id="lightboxOverlay" data-action="close-lightbox">
+    <img id="lightboxImg" alt="附件大图">
+  </div>
+
   <!-- Hidden A4 render zone -->
   <div class="a4-render-zone" id="a4RenderZone"></div>
 
@@ -431,6 +482,26 @@
           const item = data.items[i];
           const subj = SUBJECT_MAP[item.subject] || { icon: '📋', cls: '', label: item.subject };
           const contentText = (item.content || '').replace(/\\n/g, '\n');
+
+          // Build media section
+          let mediaHtml = '';
+          const photos = item.photos || [];
+          const videos = item.videos || [];
+          if (photos.length || videos.length) {
+            mediaHtml = '<div class="card-media">';
+            for (const url of photos) {
+              mediaHtml += `<img src="${url}" alt="作业附件" loading="lazy" data-action="lightbox" data-src="${url}">`;
+            }
+            for (const url of videos) {
+              mediaHtml += `<video controls preload="metadata" playsinline><source src="${url}" type="video/mp4">您的浏览器不支持视频播放</video>`;
+            }
+            mediaHtml += '</div>';
+            const labels = [];
+            if (photos.length) labels.push(photos.length + '张图片');
+            if (videos.length) labels.push(videos.length + '个视频');
+            mediaHtml += `<div class="media-label">📎 附件：${labels.join('、')}</div>`;
+          }
+
           html += `
             <div class="card" data-card-index="${i}" data-content="${encodeURIComponent(contentText)}">
               <div class="card-header">
@@ -442,6 +513,7 @@
                 </button>
               </div>
               <div class="card-body">${escapeHtml(contentText)}</div>
+              ${mediaHtml}
               <div class="card-footer">
                 <span>截止：${item.deadline || '-'}</span>
                 ${item.submitMethod ? `<span class="submit-tag">提交：${item.submitMethod}</span>` : ''}
@@ -577,6 +649,16 @@
       }
       if (action === 'close-img-preview') {
         document.getElementById('imgPreviewOverlay').classList.remove('show');
+      }
+      if (action === 'lightbox') {
+        const src = target.dataset.src;
+        if (src) {
+          document.getElementById('lightboxImg').src = src;
+          document.getElementById('lightboxOverlay').classList.add('show');
+        }
+      }
+      if (action === 'close-lightbox') {
+        document.getElementById('lightboxOverlay').classList.remove('show');
       }
       if (action === 'export-img') {
         exportAsImage();

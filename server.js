@@ -87,6 +87,8 @@ app.get('/api/homework', async (req, res) => {
           deadline: richText(f['截止时间']),
           content: richText(f['作业内容']),
           submitMethod: richText(f['提交方式']),
+          photos: richText(f['图片附件']).split(',').filter(Boolean),
+          videos: richText(f['视频附件']).split(',').filter(Boolean),
         };
       });
       allItems = allItems.concat(items);
