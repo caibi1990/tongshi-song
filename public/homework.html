@@ -247,6 +247,65 @@
       font-size: 12px;
       color: #999;
     }
+    .tts-speed-bar .export-btn {
+      background: none;
+      border: 1px solid #4facfe;
+      border-radius: 12px;
+      padding: 4px 14px;
+      font-size: 12px;
+      color: #4facfe;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    .tts-speed-bar .export-btn:active { background: #f0f8ff; }
+    .tts-speed-bar .export-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .img-preview-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .img-preview-overlay.show { display: flex; }
+    .img-preview-overlay .preview-tip {
+      color: #fff;
+      font-size: 14px;
+      margin-bottom: 12px;
+      text-align: center;
+      opacity: 0.85;
+    }
+    .img-preview-overlay .preview-img {
+      max-width: 100%;
+      max-height: 75vh;
+      border-radius: 4px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .img-preview-overlay .preview-close {
+      margin-top: 16px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 20px;
+      padding: 8px 32px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .img-preview-overlay .preview-close:active {
+      background: rgba(255,255,255,0.3);
+    }
+    .a4-render-zone {
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: 794px;
+      background: #fff;
+    }
   </style>
 </head>
 <body>
@@ -266,6 +325,7 @@
     <button class="speed-btn" data-action="tts-speed" data-speed="0.6">慢</button>
     <button class="speed-btn active" data-action="tts-speed" data-speed="0.85">中</button>
     <button class="speed-btn" data-action="tts-speed" data-speed="1.0">快</button>
+    <button class="export-btn" data-action="export-img" id="exportBtn">📄 导出图片</button>
   </div>
   <div class="content" id="content">
     <div class="loading">加载中</div>
@@ -295,6 +355,16 @@
       <div class="about-footer">亚迪学校 · 明悦三班 · 作业助手</div>
     </div>
   </div>
+
+  <!-- Image Preview Overlay -->
+  <div class="img-preview-overlay" id="imgPreviewOverlay">
+    <div class="preview-tip">长按图片保存到相册，即可打印</div>
+    <img class="preview-img" id="previewImg" alt="作业图片">
+    <button class="preview-close" data-action="close-img-preview">关闭</button>
+  </div>
+
+  <!-- Hidden A4 render zone -->
+  <div class="a4-render-zone" id="a4RenderZone"></div>
 
   <script>
     const SUBJECT_MAP = {
@@ -505,7 +575,141 @@
       if (action === 'close-about') {
         document.getElementById('aboutOverlay').classList.remove('show');
       }
+      if (action === 'close-img-preview') {
+        document.getElementById('imgPreviewOverlay').classList.remove('show');
+      }
+      if (action === 'export-img') {
+        exportAsImage();
+      }
     });
+
+    // --- Export as A4 Image ---
+    let html2canvasLoaded = false;
+    let html2canvasLoading = false;
+
+    function loadHtml2Canvas() {
+      return new Promise((resolve, reject) => {
+        if (html2canvasLoaded) return resolve();
+        if (html2canvasLoading) return reject(new Error('正在加载中'));
+        html2canvasLoading = true;
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        script.onload = () => { html2canvasLoaded = true; html2canvasLoading = false; resolve(); };
+        script.onerror = () => { html2canvasLoading = false; reject(new Error('加载导出组件失败')); };
+        document.head.appendChild(script);
+      });
+    }
+
+    function buildA4Content(items, dateStr) {
+      const zone = document.getElementById('a4RenderZone');
+      const formattedDate = formatDate(dateStr);
+      let html = `<div style="
+        width: 794px;
+        min-height: 1123px;
+        padding: 50px 56px;
+        font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+        background: #fff;
+        color: #333;
+      ">
+        <div style="text-align:center;margin-bottom:32px;">
+          <div style="font-size:26px;font-weight:700;color:#333;">今日作业</div>
+          <div style="font-size:14px;color:#888;margin-top:6px;">${formattedDate}</div>
+        </div>`;
+
+      for (const item of items) {
+        const subj = SUBJECT_MAP[item.subject] || { icon: '📋', label: item.subject };
+        const contentText = (item.content || '').replace(/\\n/g, '\n').replace(/\n/g, '<br>');
+        html += `
+        <div style="
+          border: 1px solid #e8e8e8;
+          border-radius: 10px;
+          padding: 20px 22px;
+          margin-bottom: 18px;
+          page-break-inside: avoid;
+        ">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <span style="font-size:20px;">${subj.icon}</span>
+            <span style="font-size:18px;font-weight:600;flex:1;">${subj.label}</span>
+            <span style="font-size:12px;color:#999;">${item.teacher || ''}</span>
+          </div>
+          <div style="font-size:14px;line-height:2;color:#444;">${contentText}</div>
+          <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f0f0f0;font-size:12px;color:#999;display:flex;justify-content:space-between;">
+            <span>截止：${item.deadline || '-'}</span>
+            ${item.submitMethod ? `<span style="background:#e8f5e9;color:#2e7d32;padding:1px 8px;border-radius:3px;">提交：${item.submitMethod}</span>` : ''}
+          </div>
+        </div>`;
+      }
+
+      html += `
+        <div style="text-align:center;font-size:11px;color:#ccc;margin-top:32px;padding-top:16px;border-top:1px solid #f0f0f0;">
+          亚迪学校 · 明悦三班 · 学习助手
+        </div>
+      </div>`;
+
+      zone.innerHTML = html;
+      return zone;
+    }
+
+    async function exportAsImage() {
+      const btn = document.getElementById('exportBtn');
+      if (btn.disabled) return;
+
+      // Check if there are cards to export
+      const cards = document.querySelectorAll('.card');
+      if (cards.length === 0) {
+        alert('当前没有作业内容可导出');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ 生成中...';
+
+      try {
+        await loadHtml2Canvas();
+
+        // Get current items from the DOM data
+        const items = [];
+        cards.forEach((card, i) => {
+          const title = card.querySelector('.card-title');
+          const meta = card.querySelector('.card-meta');
+          const body = card.querySelector('.card-body');
+          const footer = card.querySelector('.card-footer');
+          const submitTag = card.querySelector('.submit-tag');
+          items.push({
+            subject: title ? title.textContent.trim() : '',
+            teacher: meta ? meta.textContent.trim() : '',
+            content: decodeURIComponent(card.dataset.content || ''),
+            deadline: footer ? footer.querySelector('span:first-child').textContent.replace('截止：', '') : '',
+            submitMethod: submitTag ? submitTag.textContent.replace('提交：', '') : '',
+          });
+        });
+
+        const renderZone = buildA4Content(items, currentDate);
+
+        // Wait a frame for rendering
+        await new Promise(r => requestAnimationFrame(r));
+
+        const canvas = await html2canvas(renderZone.firstElementChild, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+        });
+
+        const dataUrl = canvas.toDataURL('image/png');
+        document.getElementById('previewImg').src = dataUrl;
+        document.getElementById('imgPreviewOverlay').classList.add('show');
+
+        // Clean up render zone
+        renderZone.innerHTML = '';
+      } catch (err) {
+        console.error('Export failed:', err);
+        alert('导出失败：' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📄 导出图片';
+      }
+    }
 
     // Init
     loadHomework(currentDate);
