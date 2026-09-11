@@ -18,8 +18,18 @@
       color: #fff;
       padding: 20px 16px 16px;
       text-align: center;
+      display: flex;
+      align-items: center;
     }
-    .header h1 { font-size: 20px; font-weight: 600; }
+    .header .back-link {
+      color: #fff;
+      text-decoration: none;
+      font-size: 14px;
+      flex-shrink: 0;
+      opacity: 0.85;
+    }
+    .header .back-link:active { opacity: 0.5; }
+    .header h1 { font-size: 20px; font-weight: 600; flex: 1; }
     .header .date {
       font-size: 14px;
       opacity: 0.85;
@@ -195,6 +205,7 @@
 </head>
 <body>
   <div class="header">
+    <a href="/" class="back-link">← 首页</a>
     <h1>今日作业</h1>
     <div class="date" id="headerDate"></div>
   </div>
