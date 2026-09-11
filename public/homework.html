@@ -72,6 +72,14 @@
     .about-box .about-section { margin-bottom: 16px; }
     .about-box .about-section h3 { font-size: 14px; color: #4facfe; margin-bottom: 6px; }
     .about-box .about-section p { font-size: 13px; line-height: 1.8; color: #555; }
+    .about-box .about-disclaimer {
+      background: #fef9f0;
+      border-left: 3px solid #f0ad4e;
+      padding: 10px 12px;
+      border-radius: 0 6px 6px 0;
+    }
+    .about-box .about-disclaimer h3 { color: #d48806; }
+    .about-box .about-disclaimer p { font-size: 12px; color: #6b5900; line-height: 1.9; margin-bottom: 2px; }
     .about-box .about-footer {
       text-align: center; font-size: 12px; color: #999;
       padding-top: 14px; border-top: 1px solid #eee;
@@ -387,12 +395,20 @@
         <p>作业内容每天 17:30 由 AI 助手自动从「班级小管家」平台提取，按学科整理后写入数据库，本页面实时展示最新数据。</p>
       </div>
       <div class="about-section">
-        <h3>可能不准确的情况</h3>
-        <p>由于提取过程依赖 AI 浏览器自动化，以下情况可能导致当天作业未能及时更新：</p>
-        <p style="margin-top:6px">· 电脑关机或休眠，定时任务无法执行<br>
-        · 网络波动导致访问班级小管家失败<br>
-        · 班级小管家页面改版，自动化流程需要适配<br>
-        · 老师发布时间晚于 17:30，当天批次已错过</p>
+        <h3>数据时效性</h3>
+        <p>作业数据每天 17:30 自动同步一次，以下情况可能导致当天作业未及时更新：</p>
+        <p style="margin-top:6px">· 老师发布时间晚于 17:30，当天批次已错过<br>
+        · 老师后续修改或补充了作业内容<br>
+        · 网络波动导致同步失败</p>
+        <p style="margin-top:6px">如遇上述情况，请以「班级小管家」App 中的原始信息为准。</p>
+      </div>
+      <div class="about-section about-disclaimer">
+        <h3>免责声明</h3>
+        <p>1. 本页面为家长自建的家庭学习辅助工具，并非学校或班级小管家官方发布渠道。</p>
+        <p>2. 作业数据来源于「班级小管家」平台的公开接口，仅供参考，不代表学校官方通知。作业内容的最终解释权归各科老师所有。</p>
+        <p>3. 数据在传输和展示过程中可能存在延迟或误差，请以「班级小管家」App 中老师发布的原始信息为准。</p>
+        <p>4. 本工具仅供本家庭成员个人学习使用，不得用于商业目的或向第三方传播。</p>
+        <p>5. 页面中展示的老师附件（图片、视频等）版权归原作者所有，仅限个人查看，请勿未经授权转载或公开分享。</p>
       </div>
       <div class="about-section">
         <h3>遇到问题？</h3>
