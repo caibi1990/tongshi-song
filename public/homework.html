@@ -139,6 +139,58 @@
       padding: 40px 20px;
       color: #e53935;
     }
+    .tts-btn {
+      background: none;
+      border: 1px solid #4facfe;
+      border-radius: 16px;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: #4facfe;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .tts-btn:active { background: #f0f8ff; }
+    .tts-btn.speaking {
+      background: #4facfe;
+      color: #fff;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .tts-speed-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #fff;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+      color: #666;
+    }
+    .tts-speed-bar .speed-btn {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 4px 14px;
+      font-size: 12px;
+      color: #666;
+      cursor: pointer;
+    }
+    .tts-speed-bar .speed-btn.active {
+      background: #4facfe;
+      border-color: #4facfe;
+      color: #fff;
+    }
+    .tts-speed-bar .speed-label {
+      font-size: 12px;
+      color: #999;
+    }
   </style>
 </head>
 <body>
@@ -150,6 +202,12 @@
     <button id="prevBtn">&#8592; 前一天</button>
     <div class="current-date" id="dateLabel"></div>
     <button id="nextBtn">后一天 &#8594;</button>
+  </div>
+  <div class="tts-speed-bar">
+    <span class="speed-label">朗读速度</span>
+    <button class="speed-btn" data-action="tts-speed" data-speed="0.6">慢</button>
+    <button class="speed-btn active" data-action="tts-speed" data-speed="0.85">中</button>
+    <button class="speed-btn" data-action="tts-speed" data-speed="1.0">快</button>
   </div>
   <div class="content" id="content">
     <div class="loading">加载中</div>
@@ -216,15 +274,19 @@
         }
 
         let html = '';
-        for (const item of data.items) {
+        for (let i = 0; i < data.items.length; i++) {
+          const item = data.items[i];
           const subj = SUBJECT_MAP[item.subject] || { icon: '📋', cls: '', label: item.subject };
           const contentText = (item.content || '').replace(/\\n/g, '\n');
           html += `
-            <div class="card">
+            <div class="card" data-card-index="${i}" data-content="${encodeURIComponent(contentText)}">
               <div class="card-header">
                 <div class="subject-icon ${subj.cls}">${subj.icon}</div>
                 <div class="card-title">${subj.label}</div>
                 <div class="card-meta">${item.teacher || ''}</div>
+                <button class="tts-btn" data-action="tts-read" data-card-index="${i}">
+                  <span class="tts-icon">🔊</span>朗读
+                </button>
               </div>
               <div class="card-body">${escapeHtml(contentText)}</div>
               <div class="card-footer">
@@ -249,12 +311,110 @@
 
     // Navigation
     document.getElementById('prevBtn').addEventListener('click', () => {
+      stopSpeaking();
       currentDate = shiftDate(-1);
       loadHomework(currentDate);
     });
     document.getElementById('nextBtn').addEventListener('click', () => {
+      stopSpeaking();
       currentDate = shiftDate(1);
       loadHomework(currentDate);
+    });
+
+    // --- TTS (Web Speech API) ---
+    let ttsSpeed = 0.85;
+    let zhVoice = null;
+    let currentUtterance = null;
+    let currentBtnEl = null;
+
+    function findChineseVoice() {
+      const voices = speechSynthesis.getVoices();
+      // Prefer female zh-CN voice
+      zhVoice = voices.find(v => v.lang === 'zh-CN' && /female/i.test(v.name))
+        || voices.find(v => v.lang === 'zh-CN')
+        || voices.find(v => v.lang.startsWith('zh'))
+        || null;
+    }
+    // Voices may load asynchronously
+    if (typeof speechSynthesis !== 'undefined') {
+      speechSynthesis.onvoiceschanged = findChineseVoice;
+      findChineseVoice();
+    }
+
+    function stopSpeaking() {
+      if (typeof speechSynthesis !== 'undefined') {
+        speechSynthesis.cancel();
+      }
+      if (currentBtnEl) {
+        currentBtnEl.classList.remove('speaking');
+        const icon = currentBtnEl.querySelector('.tts-icon');
+        if (icon) icon.textContent = '🔊';
+        currentBtnEl = null;
+      }
+      currentUtterance = null;
+    }
+
+    function speakText(text, btnEl) {
+      if (typeof speechSynthesis === 'undefined') {
+        alert('当前浏览器不支持语音朗读');
+        return;
+      }
+      // Re-check voice
+      if (!zhVoice) findChineseVoice();
+
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = 'zh-CN';
+      utt.rate = ttsSpeed;
+      if (zhVoice) utt.voice = zhVoice;
+
+      utt.onstart = () => {
+        if (btnEl) {
+          btnEl.classList.add('speaking');
+          const icon = btnEl.querySelector('.tts-icon');
+          if (icon) icon.textContent = '⏸';
+          currentBtnEl = btnEl;
+        }
+      };
+      utt.onend = () => {
+        if (btnEl) {
+          btnEl.classList.remove('speaking');
+          const icon = btnEl.querySelector('.tts-icon');
+          if (icon) icon.textContent = '🔊';
+        }
+        currentBtnEl = null;
+        currentUtterance = null;
+      };
+      utt.onerror = utt.onend;
+
+      currentUtterance = utt;
+      speechSynthesis.speak(utt);
+    }
+
+    // Event delegation (CSP-safe, no inline onclick)
+    document.addEventListener('click', (e) => {
+      const target = e.target.closest('[data-action]');
+      if (!target) return;
+      const action = target.dataset.action;
+
+      if (action === 'tts-read') {
+        const card = document.querySelector(`.card[data-card-index="${target.dataset.cardIndex}"]`);
+        if (!card) return;
+        const text = decodeURIComponent(card.dataset.content || '');
+        if (!text.trim()) return;
+        // If clicking same button while speaking, toggle off
+        if (currentBtnEl === target && speechSynthesis.speaking) {
+          stopSpeaking();
+          return;
+        }
+        stopSpeaking();
+        speakText(text, target);
+      }
+
+      if (action === 'tts-speed') {
+        ttsSpeed = parseFloat(target.dataset.speed) || 0.85;
+        document.querySelectorAll('.tts-speed-bar .speed-btn').forEach(b => b.classList.remove('active'));
+        target.classList.add('active');
+      }
     });
 
     // Init
