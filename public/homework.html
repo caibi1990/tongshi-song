@@ -558,7 +558,7 @@
           }
 
           html += `
-            <div class="card" data-card-index="${i}" data-content="${encodeURIComponent(contentText)}">
+            <div class="card" data-card-index="${i}" data-subject="${item.subject}" data-content="${encodeURIComponent(contentText)}">
               <div class="card-header">
                 <div class="subject-icon ${subj.cls}">${subj.icon}</div>
                 <div class="card-title">${subj.label}</div>
@@ -601,73 +601,92 @@
       loadHomework(currentDate);
     });
 
-    // --- TTS (Web Speech API) ---
+    // --- TTS (Edge TTS via server proxy) ---
     let ttsSpeed = 0.85;
-    let zhVoice = null;
-    let currentUtterance = null;
+    let ttsAudio = null;
+    let ttsPlaying = false;
     let currentBtnEl = null;
 
-    function findChineseVoice() {
-      const voices = speechSynthesis.getVoices();
-      // Prefer female zh-CN voice
-      zhVoice = voices.find(v => v.lang === 'zh-CN' && /female/i.test(v.name))
-        || voices.find(v => v.lang === 'zh-CN')
-        || voices.find(v => v.lang.startsWith('zh'))
-        || null;
-    }
-    // Voices may load asynchronously
-    if (typeof speechSynthesis !== 'undefined') {
-      speechSynthesis.onvoiceschanged = findChineseVoice;
-      findChineseVoice();
+    function initAudio() {
+      if (!ttsAudio) {
+        ttsAudio = new Audio();
+        ttsAudio.preload = 'auto';
+        ttsAudio.addEventListener('ended', function() {
+          ttsPlaying = false;
+          if (currentBtnEl) {
+            currentBtnEl.classList.remove('speaking');
+            var icon = currentBtnEl.querySelector('.tts-icon');
+            if (icon) icon.textContent = '\uD83D\uDD0A';
+            currentBtnEl = null;
+          }
+        });
+        ttsAudio.addEventListener('error', function() {
+          ttsPlaying = false;
+          if (currentBtnEl) {
+            currentBtnEl.classList.remove('speaking');
+            var icon = currentBtnEl.querySelector('.tts-icon');
+            if (icon) icon.textContent = '\uD83D\uDD0A';
+            currentBtnEl = null;
+          }
+        });
+      }
     }
 
     function stopSpeaking() {
-      if (typeof speechSynthesis !== 'undefined') {
-        speechSynthesis.cancel();
+      if (ttsAudio) {
+        ttsAudio.pause();
+        ttsAudio.currentTime = 0;
       }
+      ttsPlaying = false;
       if (currentBtnEl) {
         currentBtnEl.classList.remove('speaking');
-        const icon = currentBtnEl.querySelector('.tts-icon');
-        if (icon) icon.textContent = '🔊';
+        var icon = currentBtnEl.querySelector('.tts-icon');
+        if (icon) icon.textContent = '\uD83D\uDD0A';
         currentBtnEl = null;
       }
-      currentUtterance = null;
     }
 
-    function speakText(text, btnEl) {
-      if (typeof speechSynthesis === 'undefined') {
-        alert('当前浏览器不支持语音朗读');
+    function playSubjectTTS(subject, btnEl) {
+      initAudio();
+
+      // If same button is playing, stop
+      if (ttsPlaying && currentBtnEl === btnEl) {
+        stopSpeaking();
         return;
       }
-      // Re-check voice
-      if (!zhVoice) findChineseVoice();
 
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = 'zh-CN';
-      utt.rate = ttsSpeed;
-      if (zhVoice) utt.voice = zhVoice;
+      stopSpeaking();
 
-      utt.onstart = () => {
+      // Show loading state
+      if (btnEl) {
+        var icon = btnEl.querySelector('.tts-icon');
+        if (icon) icon.textContent = '\u23F3';
+      }
+
+      var url = '/api/tts?date=' + currentDate + '&subject=' + encodeURIComponent(subject);
+      ttsAudio.src = url;
+      ttsAudio.playbackRate = ttsSpeed;
+
+      ttsAudio.play().then(function() {
+        ttsPlaying = true;
         if (btnEl) {
           btnEl.classList.add('speaking');
-          const icon = btnEl.querySelector('.tts-icon');
-          if (icon) icon.textContent = '⏸';
+          var icon = btnEl.querySelector('.tts-icon');
+          if (icon) icon.textContent = '\u23F8';
           currentBtnEl = btnEl;
         }
-      };
-      utt.onend = () => {
+      }).catch(function(err) {
+        console.error('TTS play error:', err);
         if (btnEl) {
-          btnEl.classList.remove('speaking');
-          const icon = btnEl.querySelector('.tts-icon');
-          if (icon) icon.textContent = '🔊';
+          var icon = btnEl.querySelector('.tts-icon');
+          if (icon) icon.textContent = '\uD83D\uDD0A';
         }
-        currentBtnEl = null;
-        currentUtterance = null;
-      };
-      utt.onerror = utt.onend;
+      });
+    }
 
-      currentUtterance = utt;
-      speechSynthesis.speak(utt);
+    function updateTtsSpeed(speed) {
+      ttsSpeed = speed;
+      if (ttsAudio) ttsAudio.playbackRate = speed;
     }
 
     // Event delegation (CSP-safe, no inline onclick)
@@ -679,19 +698,14 @@
       if (action === 'tts-read') {
         const card = document.querySelector(`.card[data-card-index="${target.dataset.cardIndex}"]`);
         if (!card) return;
-        const text = decodeURIComponent(card.dataset.content || '');
-        if (!text.trim()) return;
-        // If clicking same button while speaking, toggle off
-        if (currentBtnEl === target && speechSynthesis.speaking) {
-          stopSpeaking();
-          return;
-        }
-        stopSpeaking();
-        speakText(text, target);
+        const subject = card.dataset.subject || '';
+        if (!subject) return;
+        playSubjectTTS(subject, target);
       }
 
       if (action === 'tts-speed') {
-        ttsSpeed = parseFloat(target.dataset.speed) || 0.85;
+        const speed = parseFloat(target.dataset.speed) || 0.85;
+        updateTtsSpeed(speed);
         document.querySelectorAll('.tts-speed-bar .speed-btn').forEach(b => b.classList.remove('active'));
         target.classList.add('active');
       }
