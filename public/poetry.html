@@ -1043,16 +1043,24 @@ function renderModal(){
   mc.innerHTML=html;
 }
 
-/* ═══════════════ TTS (Text-to-Speech) ═══════════════ */
-let ttsSpeaking=false;
+/* ═══════════════ TTS (Pre-generated Audio) ═══════════════ */
+let ttsPlaying=false;
+let ttsAudio=null;
 
-function findChineseVoice(){
-  var voices=speechSynthesis.getVoices();
-  var isCantonese=function(v){return /zh[-_]HK|zh[-_]TW|yue/i.test(v.lang)};
-  return voices.find(function(v){return /zh[-_]CN/i.test(v.lang)&&/female|ting|mei|li|xiao/i.test(v.name)})
-    ||voices.find(function(v){return /zh[-_]CN/i.test(v.lang)})
-    ||voices.find(function(v){return /^zh/i.test(v.lang)&&!isCantonese(v)})
-    ||null;
+function initAudio(){
+  if(ttsAudio)return;
+  ttsAudio=new Audio();
+  ttsAudio.preload='auto';
+  ttsAudio.onended=function(){
+    ttsPlaying=false;
+    var btn=document.getElementById('ttsBtn');
+    if(btn){btn.textContent='\uD83D\uDD0A 朗读全诗';btn.classList.remove('playing')}
+  };
+  ttsAudio.onerror=function(){
+    ttsPlaying=false;
+    var btn=document.getElementById('ttsBtn');
+    if(btn){btn.textContent='\u274C 音频加载失败';btn.classList.remove('playing')}
+  };
 }
 
 function clearHighlights(){
@@ -1061,46 +1069,35 @@ function clearHighlights(){
 }
 
 function stopSpeaking(){
-  speechSynthesis.cancel();
-  if(window._ttsIntroTimer){clearTimeout(window._ttsIntroTimer);window._ttsIntroTimer=null}
-  if(window._ttsTimer){clearTimeout(window._ttsTimer);window._ttsTimer=null}
-  ttsSpeaking=false;
+  if(ttsAudio){ttsAudio.pause();ttsAudio.currentTime=0}
+  ttsPlaying=false;
   var btn=document.getElementById('ttsBtn');
   if(btn){btn.textContent='\uD83D\uDD0A 朗读全诗';btn.classList.remove('playing')}
 }
 
-
-
-
 function speakPoem(){
-  if(ttsSpeaking){stopSpeaking();return}
+  if(ttsPlaying){stopSpeaking();return}
   if(!currentPoem)return;
-  speechSynthesis.cancel();
-  var p=currentPoem;
+  initAudio();
 
-  // Build speech text: title, dynasty, author, then poem
-  var intro='';
-  if(p.t)intro+=p.t+'\u3002';
-  if(p.d)intro+=p.d+'\u671D\u3002';
-  if(p.a)intro+=p.a+'\u3002';
-  var poemText=p.l.join('\uFF0C')+'\u3002';
-  var fullText=intro+poemText;
+  ttsAudio.src='/audio/poetry/'+currentPoem.id+'.mp3';
+  ttsAudio.playbackRate=ttsSpeed;
 
-  var utt=new SpeechSynthesisUtterance(fullText);
-  var v=findChineseVoice();if(v)utt.voice=v;
-  utt.lang='zh-CN';utt.rate=ttsSpeed;utt.pitch=1;
-
-  utt.onend=function(){
-    ttsSpeaking=false;
+  ttsAudio.play().then(function(){
+    ttsPlaying=true;
     var btn=document.getElementById('ttsBtn');
-    if(btn){btn.textContent='\uD83D\uDD0A 朗读全诗';btn.classList.remove('playing')}
-  };
-  utt.onerror=utt.onend;
+    if(btn){btn.textContent='\u23F9 停止';btn.classList.add('playing')}
+  }).catch(function(e){
+    console.error('Audio play failed:',e);
+    var btn=document.getElementById('ttsBtn');
+    if(btn){btn.textContent='\u274C 播放失败'}
+  });
+}
 
-  ttsSpeaking=true;
-  speechSynthesis.speak(utt);
-  var btn=document.getElementById('ttsBtn');
-  if(btn){btn.textContent='\u23F9 停止';btn.classList.add('playing')}
+// Update playback rate when speed changes
+function updateTtsSpeed(speed){
+  ttsSpeed=speed;
+  if(ttsAudio)ttsAudio.playbackRate=speed;
 }
 
 function switchToReview(){
@@ -1340,7 +1337,7 @@ document.addEventListener('click',function(e){
     case 'tts-read':
       speakPoem();break;
     case 'tts-speed':
-      ttsSpeed=parseFloat(el.dataset.id);
+      updateTtsSpeed(parseFloat(el.dataset.id));
       document.querySelectorAll('.tts-speed button').forEach(function(b){b.classList.toggle('active',parseFloat(b.dataset.id)===ttsSpeed)});
       break;
   }
