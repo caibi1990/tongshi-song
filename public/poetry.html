@@ -94,7 +94,6 @@ html,body{height:100%;font-family:-apple-system,"PingFang SC","Helvetica Neue","
 .tts-bar .tts-speed{display:inline-flex;gap:4px;align-items:center}
 .tts-bar .tts-speed button{padding:3px 10px;border-radius:12px;border:1.5px solid #DDD;background:#fff;font-size:12px;cursor:pointer;transition:all .15s}
 .tts-bar .tts-speed button.active{border-color:var(--pri);background:var(--pri-l);color:var(--pri-d);font-weight:600}
-.tts-bar .tts-hint{font-size:11px;color:var(--sub);width:100%;text-align:center;margin-top:2px}
 
 .modal .controls{display:flex;flex-direction:column;gap:10px;margin-top:20px;padding-top:20px;border-top:1px solid #F0F0F0}
 .modal .mask-toggle{display:flex;gap:8px;justify-content:center;margin-bottom:10px}
@@ -1007,7 +1006,6 @@ function renderModal(){
       <button data-action="tts-speed" data-id="0.85" class="${ttsSpeed===0.85?'active':''}">中</button>
       <button data-action="tts-speed" data-id="1" class="${ttsSpeed===1?'active':''}">快</button>
     </div>
-    <div class="tts-hint">点击单句可单独朗读</div>
   </div>`;
 
   // Poem lines
