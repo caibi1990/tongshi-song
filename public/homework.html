@@ -415,8 +415,8 @@
   <div class="tts-speed-bar">
     <span class="speed-label">朗读速度</span>
     <button class="speed-btn" data-action="tts-speed" data-speed="0.6">慢</button>
-    <button class="speed-btn active" data-action="tts-speed" data-speed="0.85">中</button>
-    <button class="speed-btn" data-action="tts-speed" data-speed="1.0">快</button>
+    <button class="speed-btn" data-action="tts-speed" data-speed="0.85">中</button>
+    <button class="speed-btn active" data-action="tts-speed" data-speed="1.0">快</button>
     <button class="export-btn" data-action="export-img" id="exportBtn">📄 导出图片</button>
   </div>
   <div class="content" id="content">
@@ -613,7 +613,7 @@
     });
 
     // --- TTS (Edge TTS via server proxy) ---
-    let ttsSpeed = 0.85;
+    let ttsSpeed = 1.0;
     let ttsAudio = null;
     let ttsPlaying = false;
     let currentBtnEl = null;
