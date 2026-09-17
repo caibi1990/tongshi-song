@@ -195,6 +195,11 @@
       border-radius: 8px;
       background: #000;
     }
+    .card-media audio {
+      width: 100%;
+      border-radius: 8px;
+      margin-bottom: 4px;
+    }
     .media-label {
       font-size: 11px;
       color: #999;
@@ -542,7 +547,8 @@
           let mediaHtml = '';
           const photos = item.photos || [];
           const videos = item.videos || [];
-          if (photos.length || videos.length) {
+          const audios = item.audios || [];
+          if (photos.length || videos.length || audios.length) {
             mediaHtml = '<div class="card-media">';
             for (const url of photos) {
               mediaHtml += `<img src="${url}" alt="作业附件" loading="lazy" referrerpolicy="no-referrer" data-action="lightbox" data-src="${url}">`;
@@ -550,10 +556,14 @@
             for (const url of videos) {
               mediaHtml += `<video controls preload="metadata" playsinline><source src="${url}" type="video/mp4">您的浏览器不支持视频播放</video>`;
             }
+            for (const url of audios) {
+              mediaHtml += `<audio controls preload="metadata" style="width:100%"><source src="${url}" type="audio/mpeg">您的浏览器不支持音频播放</audio>`;
+            }
             mediaHtml += '</div>';
             const labels = [];
             if (photos.length) labels.push(photos.length + '张图片');
             if (videos.length) labels.push(videos.length + '个视频');
+            if (audios.length) labels.push(audios.length + '条音频');
             mediaHtml += `<div class="media-label">📎 附件：${labels.join('、')}</div>`;
           }
 
@@ -586,6 +596,7 @@
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
+        .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
         .replace(/\n/g, '<br>');
     }
 
@@ -771,7 +782,7 @@
     // Build HTML for a single subject card
     function buildCardHTML(item) {
       const subj = SUBJECT_MAP[item.subject] || { icon: '📋', label: item.subject };
-      const contentText = (item.content || '').replace(/\\n/g, '\n').replace(/\n/g, '<br>');
+      const contentText = escapeHtml((item.content || '').replace(/\\n/g, '\n'));
       return `<div class="a4-card" style="
         border: 1px solid #e8e8e8;
         border-radius: 10px;

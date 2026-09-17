@@ -20,6 +20,34 @@ function richText(val) {
   return '';
 }
 
+// Extract media URLs from bitable fields (handles rich text with links, markdown links, comma-separated)
+function extractMediaUrls(val) {
+  if (Array.isArray(val)) {
+    const urls = [];
+    for (const seg of val) {
+      if (seg.link) urls.push(seg.link);
+      else if (seg.text) {
+        const m = seg.text.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (m) urls.push(m[2]);
+        else urls.push(...seg.text.split(',').map(s => s.trim()).filter(Boolean));
+      }
+    }
+    return urls.filter(Boolean);
+  }
+  if (typeof val === 'string') {
+    if (!val) return [];
+    const m = val.match(/\[([^\]]+)\]\(([^)]+)\)/g);
+    if (m) return m.map(x => x.replace(/\[([^\]]+)\]\(([^)]+)\)/, '$2'));
+    return val.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+// Strip HTML tags for clean TTS text
+function stripHtml(s) {
+  return s.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '');
+}
+
 // --- Token cache ---
 let tokenCache = { token: '', expiresAt: 0 };
 
@@ -78,8 +106,9 @@ async function fetchHomeworkItems(date) {
         deadline: richText(f['截止时间']),
         content: richText(f['作业内容']),
         submitMethod: richText(f['提交方式']),
-        photos: richText(f['图片附件']).split(',').filter(Boolean),
-        videos: richText(f['视频附件']).split(',').filter(Boolean),
+        photos: extractMediaUrls(f['图片附件']),
+        videos: extractMediaUrls(f['视频附件']),
+        audios: extractMediaUrls(f['音频附件']),
       };
     });
     allItems = allItems.concat(items);
@@ -143,7 +172,7 @@ app.get('/api/tts', async (req, res) => {
     const ttsText = matched.map((item) => {
       let text = `${item.subject}作业。`;
       if (item.teacher) text += `发布人，${item.teacher}。`;
-      text += item.content;
+      text += stripHtml(item.content);
       if (item.submitMethod) text += `。提交方式，${item.submitMethod}。`;
       return text;
     }).join('。');
