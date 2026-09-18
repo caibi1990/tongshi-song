@@ -2,16 +2,20 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>今日作业</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
       font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
       background: #f5f5f5;
       color: #333;
       min-height: 100vh;
+      min-height: 100dvh;
       padding-bottom: env(safe-area-inset-bottom, 20px);
+      -webkit-text-size-adjust: 100%;
     }
     .header {
       background: linear-gradient(135deg, #4facfe, #00f2fe);
@@ -397,6 +401,26 @@
       top: 0;
       width: 794px;
       background: #fff;
+    }
+    /* iPad & Tablet */
+    @media (min-width: 768px) {
+      .header { padding: 24px 32px 20px; }
+      .header h1 { font-size: 24px; }
+      .content { padding: 16px 32px; max-width: 720px; margin: 0 auto; }
+      .card { padding: 20px 24px; }
+      .card-body { font-size: 16px; line-height: 1.9; }
+      .card-title { font-size: 18px; }
+      .date-nav { padding: 14px 32px; }
+      .date-nav button { padding: 8px 18px; font-size: 14px; }
+      .date-nav .current-date { font-size: 17px; }
+      .tts-speed-bar { padding: 12px 32px; }
+      .tts-speed-bar .speed-btn { padding: 6px 18px; font-size: 13px; }
+      .card-media img { max-height: 300px; }
+      .card-media video { max-height: 360px; }
+      .card-media audio { margin-bottom: 6px; }
+      .about-box { max-width: 480px; padding: 36px 32px; }
+      .lightbox-overlay img { max-width: 90vw; }
+      .page-footer { padding: 24px 32px 48px; font-size: 12px; }
     }
   </style>
 </head>
@@ -957,6 +981,22 @@
         btn.textContent = '📄 导出图片';
       }
     }
+
+    // iOS Safari audio unlock: need user gesture before audio can play
+    (function() {
+      var unlocked = false;
+      function unlockAudio() {
+        if (unlocked) return;
+        unlocked = true;
+        var a = new Audio();
+        a.src = 'data:audio/mpeg;base64,SUQz';
+        a.play().catch(function(){});
+        document.removeEventListener('touchstart', unlockAudio);
+        document.removeEventListener('click', unlockAudio);
+      }
+      document.addEventListener('touchstart', unlockAudio, {passive: true});
+      document.addEventListener('click', unlockAudio);
+    })();
 
     // Init
     loadHomework(currentDate);

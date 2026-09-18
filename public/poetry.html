@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>亚迪古诗背诵</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -14,7 +16,7 @@
   --accent:#FFD54F;--danger:#EF5350;
   --r:16px;--rs:10px;--shadow:0 2px 16px rgba(0,0,0,.07);
 }
-html,body{height:100%;font-family:-apple-system,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);font-size:16px;overflow:hidden}
+html,body{height:100%;font-family:-apple-system,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);font-size:16px;overflow:hidden;-webkit-text-size-adjust:100%}
 #app{display:flex;flex-direction:column;height:100%;max-width:500px;margin:0 auto;position:relative}
 .header{padding:16px 20px 8px;display:flex;align-items:center;gap:12px;flex-shrink:0}
 .header .back-link{color:var(--sub);text-decoration:none;font-size:13px;flex-shrink:0}
@@ -204,6 +206,34 @@ html,body{height:100%;font-family:-apple-system,"PingFang SC","Helvetica Neue","
 .info-panel .search-link{display:inline-flex;align-items:center;gap:4px;padding:8px 16px;border-radius:8px;background:var(--pri-l);color:var(--pri-d);font-size:13px;text-decoration:none;font-weight:600;margin-top:8px}
 
 @media(min-width:500px){.main{padding:12px 24px 24px}}
+
+/* iPad & Tablet */
+@media(min-width:768px){
+  #app{max-width:700px}
+  .header{padding:20px 28px 10px;padding-top:max(20px,env(safe-area-inset-top,20px))}
+  .header h1{font-size:24px}
+  .nav{padding-bottom:max(8px,env(safe-area-inset-bottom,8px))}
+  .main{padding:16px 28px 28px}
+  .card{padding:24px}
+  .card .poem-title{font-size:20px}
+  .card .poem-body{font-size:16px}
+  .nav button{padding:14px 0 12px;font-size:12px}
+  .nav button .icon{font-size:24px}
+  .modal{max-width:700px;max-height:92vh;padding:28px 28px 48px}
+  .modal .poem-header .title{font-size:28px}
+  .modal .poem-lines{font-size:22px;line-height:2.6}
+  .modal .close-btn{width:48px;height:48px;font-size:22px}
+  .btn{padding:14px 28px;font-size:16px}
+  .tts-bar .tts-btn{padding:10px 22px;font-size:15px}
+  .about-box{max-width:480px;padding:36px 28px}
+  .info-panel{padding:20px}
+  .info-panel .info-text{font-size:15px}
+  .filter-tabs button{padding:8px 20px;font-size:14px}
+  .cal-grid .day-cell{border-radius:12px}
+  .cal-num{font-size:15px}
+  .poem-list-item{padding:16px 0}
+  .poem-list-item .info .name{font-size:15px}
+}
 </style>
 </head>
 <body>
