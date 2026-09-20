@@ -46,14 +46,28 @@
     @media (max-width: 380px) {
       .cards { grid-template-columns: 1fr; }
     }
+    /* iPad & Tablet — 儿童友好大字模式 */
     @media (min-width: 768px) {
-      .cards { max-width: 520px; gap: 24px; }
-      .header h1 { font-size: 36px; }
-      .header p { font-size: 16px; }
-      .card { padding: 36px 28px; border-radius: 24px; }
-      .card-icon { width: 80px; height: 80px; font-size: 40px; border-radius: 22px; }
-      .card-title { font-size: 20px; }
-      .card-desc { font-size: 14px; }
+      body { padding: 60px 40px; }
+      .header { margin-bottom: 56px; }
+      .header h1 { font-size: 42px; }
+      .header p { font-size: 20px; margin-top: 10px; }
+      .cards { max-width: 640px; gap: 28px; }
+      .card { padding: 44px 36px; border-radius: 28px; gap: 16px; }
+      .card-icon { width: 96px; height: 96px; font-size: 48px; border-radius: 26px; }
+      .card-title { font-size: 24px; }
+      .card-desc { font-size: 17px; line-height: 1.6; }
+      .footer { font-size: 15px; padding-top: 56px; }
+    }
+    /* iPad Pro / 大平板 */
+    @media (min-width: 1024px) {
+      .header h1 { font-size: 48px; }
+      .header p { font-size: 22px; }
+      .cards { max-width: 720px; gap: 32px; }
+      .card { padding: 52px 44px; }
+      .card-icon { width: 108px; height: 108px; font-size: 54px; }
+      .card-title { font-size: 28px; }
+      .card-desc { font-size: 19px; }
     }
     .card {
       background: #fff;

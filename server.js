@@ -1,9 +1,152 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+const { execFile } = require('child_process');
 const { generateAudio } = require('./edge-tts');
 
 const app = express();
+app.use(express.json());
 const PORT = process.env.PORT || 3000;
+
+// --- Scheduler ---
+const SCHEDULER_DIR = path.resolve(__dirname, '../scripts');
+const TASKS_FILE = path.join(SCHEDULER_DIR, 'tasks.json');
+const LOG_FILE = path.join(SCHEDULER_DIR, 'homework.log');
+
+function readTasks() {
+  try {
+    return JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
+  } catch {
+    // Default task config
+    return {
+      tasks: [{
+        id: 'homework-fetch',
+        name: '作业拉取',
+        hour: 17, minute: 30,
+        retryHour: 18, retryMinute: 30,
+        enabled: true,
+        script: 'fetch_homework.sh',
+        lastRun: null,
+        lastResult: null,
+      }]
+    };
+  }
+}
+
+function writeTasks(data) {
+  fs.writeFileSync(TASKS_FILE, JSON.stringify(data, null, 2));
+}
+
+// Scheduler API routes
+app.get('/api/scheduler/tasks', (req, res) => {
+  const data = readTasks();
+  // Check if launchd service is loaded
+  let serviceRunning = false;
+  try {
+    const { execSync } = require('child_process');
+    const out = execSync('launchctl list 2>/dev/null | grep com.enze.homework || true', { encoding: 'utf8' });
+    serviceRunning = out.trim().length > 0;
+  } catch {}
+  res.json({ tasks: data.tasks, serviceRunning, lastRun: data.tasks[0]?.lastRun });
+});
+
+app.patch('/api/scheduler/tasks/:id', (req, res) => {
+  const data = readTasks();
+  const task = data.tasks.find(t => t.id === req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const updates = req.body;
+  if (updates.hour != null) task.hour = updates.hour;
+  if (updates.minute != null) task.minute = updates.minute;
+  if (updates.retryHour != null) task.retryHour = updates.retryHour;
+  if (updates.retryMinute != null) task.retryMinute = updates.retryMinute;
+  if (updates.enabled != null) task.enabled = updates.enabled;
+
+  writeTasks(data);
+
+  // Update launchd plist if schedule changed
+  if (updates.hour != null || updates.minute != null) {
+    updatePlist(task);
+  }
+
+  res.json({ ok: true, task });
+});
+
+app.post('/api/scheduler/tasks/:id/trigger', (req, res) => {
+  const data = readTasks();
+  const task = data.tasks.find(t => t.id === req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const scriptPath = path.join(SCHEDULER_DIR, task.script);
+  if (!fs.existsSync(scriptPath)) {
+    return res.status(500).json({ error: 'Script not found: ' + scriptPath });
+  }
+
+  // Run in background
+  const child = execFile('/bin/bash', [scriptPath], { cwd: SCHEDULER_DIR, timeout: 120000 }, (err) => {
+    task.lastRun = new Date().toISOString();
+    task.lastResult = err ? 'error' : 'ok';
+    writeTasks(data);
+  });
+
+  task.lastRun = new Date().toISOString();
+  task.lastResult = 'running';
+  writeTasks(data);
+
+  res.json({ ok: true, message: '任务已触发，请查看日志' });
+});
+
+app.get('/api/scheduler/logs', (req, res) => {
+  const lines = parseInt(req.query.lines) || 100;
+  try {
+    if (!fs.existsSync(LOG_FILE)) {
+      return res.json({ lines: [] });
+    }
+    const content = fs.readFileSync(LOG_FILE, 'utf8');
+    const allLines = content.trim().split('\n');
+    res.json({ lines: allLines.slice(-lines) });
+  } catch (e) {
+    res.json({ lines: ['读取日志失败: ' + e.message] });
+  }
+});
+
+function updatePlist(task) {
+  const plistPath = path.join(SCHEDULER_DIR, 'com.enze.homework.plist');
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.enze.homework</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>${path.join(SCHEDULER_DIR, task.script)}</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>${task.hour}</integer>
+        <key>Minute</key>
+        <integer>${task.minute}</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>${path.join(SCHEDULER_DIR, 'launchd.log')}</string>
+    <key>StandardErrorPath</key>
+    <string>${path.join(SCHEDULER_DIR, 'launchd.error.log')}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    </dict>
+</dict>
+</plist>`;
+  try {
+    fs.writeFileSync(plistPath, plist);
+  } catch (e) {
+    console.error('Failed to update plist:', e.message);
+  }
+}
 
 // --- Config ---
 const APP_ID = process.env.FEISHU_APP_ID || '';

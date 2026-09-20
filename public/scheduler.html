@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>定时任务管理</title>
+<style>
+  :root { --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e4e4e7; --muted: #9ca3af; --accent: #6366f1; --green: #22c55e; --red: #ef4444; --yellow: #eab308; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 24px; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 24px; margin-bottom: 8px; }
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+
+  /* Status bar */
+  .status-bar { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .status-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; flex: 1; min-width: 200px; }
+  .status-card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .status-card .value { font-size: 20px; font-weight: 600; margin-top: 4px; }
+  .status-card .value.running { color: var(--green); }
+  .status-card .value.stopped { color: var(--red); }
+
+  /* Task list */
+  .task-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .task-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; transition: border-color 0.2s; }
+  .task-card:hover { border-color: var(--accent); }
+  .task-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .task-icon.homework { background: rgba(99,102,241,0.15); }
+  .task-info { flex: 1; }
+  .task-name { font-weight: 600; font-size: 16px; }
+  .task-schedule { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .task-meta { display: flex; gap: 12px; margin-top: 6px; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+  .tag.active { background: rgba(34,197,94,0.15); color: var(--green); }
+  .tag.inactive { background: rgba(239,68,68,0.15); color: var(--red); }
+  .tag.retry { background: rgba(234,179,8,0.15); color: var(--yellow); }
+
+  .task-actions { display: flex; gap: 8px; }
+  button { border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: transparent; border: 1px solid var(--border); color: var(--red); }
+  .btn-danger:hover { border-color: var(--red); background: rgba(239,68,68,0.1); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Log panel */
+  .log-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .log-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .log-header h3 { font-size: 14px; font-weight: 600; }
+  .log-body { padding: 16px 20px; max-height: 400px; overflow-y: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.8; color: var(--muted); white-space: pre-wrap; word-break: break-all; }
+  .log-body .log-time { color: var(--accent); }
+  .log-body .log-error { color: var(--red); }
+  .log-body .log-warn { color: var(--yellow); }
+  .log-body .log-ok { color: var(--green); }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 20px; font-size: 14px; transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 100; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--green); }
+  .toast.error { border-color: var(--red); }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 90%; max-width: 480px; }
+  .modal h3 { margin-bottom: 16px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .form-group input, .form-group select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 14px; outline: none; }
+  .form-group input:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>⏰ 定时任务管理</h1>
+  <p class="subtitle">管理作业拉取等自动化任务的调度与执行</p>
+
+  <div class="status-bar">
+    <div class="status-card">
+      <div class="label">服务状态</div>
+      <div class="value" id="serviceStatus">检查中...</div>
+    </div>
+    <div class="status-card">
+      <div class="label">上次执行</div>
+      <div class="value" id="lastRun" style="font-size:16px">-</div>
+    </div>
+    <div class="status-card">
+      <div class="label">下次执行</div>
+      <div class="value" id="nextRun" style="font-size:16px">-</div>
+    </div>
+  </div>
+
+  <div class="task-list" id="taskList"></div>
+
+  <div class="log-section">
+    <div class="log-header">
+      <h3>📋 执行日志</h3>
+      <button class="btn-outline" onclick="refreshLogs()">刷新</button>
+    </div>
+    <div class="log-body" id="logBody">加载中...</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>✏️ 编辑任务</h3>
+    <div class="form-group">
+      <label>执行时间（时:分）</label>
+      <input type="time" id="editTime" value="17:30">
+    </div>
+    <div class="form-group">
+      <label>重试时间（时:分，不足3科时触发）</label>
+      <input type="time" id="editRetryTime" value="18:30">
+    </div>
+    <div class="form-group">
+      <label>启用状态</label>
+      <select id="editEnabled">
+        <option value="true">启用</option>
+        <option value="false">禁用</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn-primary" onclick="saveTask()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/scheduler';
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  return res.json();
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+function formatTime(ts) {
+  if (!ts) return '-';
+  const d = new Date(ts);
+  return d.toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+function calcNextRun(hour, minute) {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(hour, minute, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  return next.toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+async function loadTasks() {
+  try {
+    const data = await api('GET', '/tasks');
+    renderTasks(data.tasks || []);
+    updateStatus(data);
+  } catch (e) {
+    document.getElementById('serviceStatus').textContent = '离线';
+    document.getElementById('serviceStatus').className = 'value stopped';
+  }
+}
+
+function updateStatus(data) {
+  const el = document.getElementById('serviceStatus');
+  el.textContent = data.serviceRunning ? '运行中' : '已停止';
+  el.className = `value ${data.serviceRunning ? 'running' : 'stopped'}`;
+
+  document.getElementById('lastRun').textContent = formatTime(data.lastRun);
+
+  const task = (data.tasks || []).find(t => t.id === 'homework-fetch');
+  if (task && task.enabled) {
+    document.getElementById('nextRun').textContent = calcNextRun(task.hour, task.minute);
+  } else {
+    document.getElementById('nextRun').textContent = '未启用';
+  }
+}
+
+function renderTasks(tasks) {
+  const container = document.getElementById('taskList');
+  if (!tasks.length) {
+    container.innerHTML = '<div style="color:var(--muted);padding:20px;text-align:center">暂无任务</div>';
+    return;
+  }
+  container.innerHTML = tasks.map(t => `
+    <div class="task-card">
+      <div class="task-icon homework">📚</div>
+      <div class="task-info">
+        <div class="task-name">${t.name}</div>
+        <div class="task-schedule">每天 ${String(t.hour).padStart(2,'0')}:${String(t.minute).padStart(2,'0')} 执行${t.retryHour != null ? ` · 重试 ${String(t.retryHour).padStart(2,'0')}:${String(t.retryMinute).padStart(2,'0')}` : ''}</div>
+        <div class="task-meta">
+          <span class="tag ${t.enabled ? 'active' : 'inactive'}">${t.enabled ? '已启用' : '已禁用'}</span>
+          ${t.lastResult ? `<span class="tag ${t.lastResult === 'ok' ? 'active' : t.lastResult === 'retry' ? 'retry' : 'inactive'}">${t.lastResult === 'ok' ? '上次成功' : t.lastResult === 'retry' ? '已重试' : '上次失败'}</span>` : ''}
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="btn-outline" onclick="triggerNow('${t.id}')" ${!t.enabled ? 'disabled' : ''}>立即执行</button>
+        <button class="btn-outline" onclick="openEdit('${t.id}', ${t.hour}, ${t.minute}, ${t.retryHour||18}, ${t.retryMinute||30}, ${t.enabled})">编辑</button>
+        <button class="btn-outline" onclick="toggleTask('${t.id}', ${!t.enabled})">${t.enabled ? '禁用' : '启用'}</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function triggerNow(id) {
+  showToast('正在执行...', 'success');
+  try {
+    const res = await api('POST', `/tasks/${id}/trigger`);
+    showToast(res.message || '已触发执行', 'success');
+    setTimeout(loadTasks, 2000);
+    setTimeout(refreshLogs, 3000);
+  } catch (e) {
+    showToast('触发失败: ' + e.message, 'error');
+  }
+}
+
+async function toggleTask(id, enabled) {
+  try {
+    await api('PATCH', `/tasks/${id}`, { enabled });
+    showToast(enabled ? '已启用' : '已禁用');
+    loadTasks();
+  } catch (e) {
+    showToast('操作失败', 'error');
+  }
+}
+
+let editingId = null;
+function openEdit(id, h, m, rh, rm, enabled) {
+  editingId = id;
+  document.getElementById('editTime').value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  document.getElementById('editRetryTime').value = `${String(rh).padStart(2,'0')}:${String(rm).padStart(2,'0')}`;
+  document.getElementById('editEnabled').value = String(enabled);
+  document.getElementById('editModal').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('editModal').classList.remove('show');
+  editingId = null;
+}
+async function saveTask() {
+  const [h, m] = document.getElementById('editTime').value.split(':').map(Number);
+  const [rh, rm] = document.getElementById('editRetryTime').value.split(':').map(Number);
+  const enabled = document.getElementById('editEnabled').value === 'true';
+  try {
+    await api('PATCH', `/tasks/${editingId}`, { hour: h, minute: m, retryHour: rh, retryMinute: rm, enabled });
+    showToast('已保存');
+    closeModal();
+    loadTasks();
+  } catch (e) {
+    showToast('保存失败', 'error');
+  }
+}
+
+async function refreshLogs() {
+  try {
+    const data = await api('GET', '/logs?lines=100');
+    const lines = (data.lines || []).map(l => {
+      let cls = '';
+      if (/ERROR/.test(l)) cls = 'log-error';
+      else if (/WARN/.test(l)) cls = 'log-warn';
+      else if (/完成|成功|OK/.test(l)) cls = 'log-ok';
+      const timeMatch = l.match(/^\[[\d\-: ]+\]/);
+      if (timeMatch) {
+        return `<span class="log-time">${timeMatch[0]}</span>${l.slice(timeMatch[0].length)}`;
+      }
+      return `<span class="${cls}">${l}</span>`;
+    }).join('\n');
+    document.getElementById('logBody').innerHTML = lines || '暂无日志';
+    // scroll to bottom
+    const lb = document.getElementById('logBody');
+    lb.scrollTop = lb.scrollHeight;
+  } catch (e) {
+    document.getElementById('logBody').textContent = '加载日志失败';
+  }
+}
+
+// Init
+loadTasks();
+refreshLogs();
+// Auto refresh every 30s
+setInterval(() => { loadTasks(); }, 30000);
+</script>
+</body>
+</html>

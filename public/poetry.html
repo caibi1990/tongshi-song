@@ -207,32 +207,53 @@ html,body{height:100%;font-family:-apple-system,"PingFang SC","Helvetica Neue","
 
 @media(min-width:500px){.main{padding:12px 24px 24px}}
 
-/* iPad & Tablet */
+/* iPad & Tablet — 儿童友好大字模式 */
 @media(min-width:768px){
-  #app{max-width:700px}
-  .header{padding:20px 28px 10px;padding-top:max(20px,env(safe-area-inset-top,20px))}
-  .header h1{font-size:24px}
-  .nav{padding-bottom:max(8px,env(safe-area-inset-bottom,8px))}
-  .main{padding:16px 28px 28px}
-  .card{padding:24px}
-  .card .poem-title{font-size:20px}
-  .card .poem-body{font-size:16px}
-  .nav button{padding:14px 0 12px;font-size:12px}
-  .nav button .icon{font-size:24px}
-  .modal{max-width:700px;max-height:92vh;padding:28px 28px 48px}
-  .modal .poem-header .title{font-size:28px}
-  .modal .poem-lines{font-size:22px;line-height:2.6}
-  .modal .close-btn{width:48px;height:48px;font-size:22px}
-  .btn{padding:14px 28px;font-size:16px}
-  .tts-bar .tts-btn{padding:10px 22px;font-size:15px}
-  .about-box{max-width:480px;padding:36px 28px}
-  .info-panel{padding:20px}
-  .info-panel .info-text{font-size:15px}
-  .filter-tabs button{padding:8px 20px;font-size:14px}
-  .cal-grid .day-cell{border-radius:12px}
-  .cal-num{font-size:15px}
-  .poem-list-item{padding:16px 0}
-  .poem-list-item .info .name{font-size:15px}
+  #app{max-width:800px}
+  .header{padding:24px 36px 14px;padding-top:max(24px,env(safe-area-inset-top,24px))}
+  .header h1{font-size:28px}
+  .header .streak{font-size:16px;padding:6px 14px}
+  .nav{padding-bottom:max(10px,env(safe-area-inset-bottom,10px))}
+  .nav button{padding:16px 0 14px;font-size:14px}
+  .nav button .icon{font-size:28px}
+  .main{padding:20px 36px 36px}
+  .card{padding:28px;border-radius:18px}
+  .card .poem-title{font-size:24px}
+  .card .poem-body{font-size:20px;line-height:2.2;letter-spacing:0.3px}
+  .stats-row{font-size:16px;gap:20px;padding:12px 36px}
+  .stats-row b{font-size:22px}
+  .progress-bar{height:10px;margin:0 36px}
+  .modal{max-width:800px;max-height:92vh;padding:32px 32px 52px;border-radius:24px}
+  .modal .poem-header .title{font-size:32px}
+  .modal .poem-lines{font-size:26px;line-height:2.8;letter-spacing:0.5px}
+  .modal .pinyin-line{font-size:16px}
+  .modal .meaning-line{font-size:16px}
+  .modal .close-btn{width:52px;height:52px;font-size:24px}
+  .btn{padding:16px 32px;font-size:18px;border-radius:14px}
+  .tts-bar .tts-btn{padding:12px 26px;font-size:17px;border-radius:14px}
+  .about-box{max-width:560px;padding:40px 32px;border-radius:24px}
+  .about-box h2{font-size:22px}
+  .about-box p{font-size:16px;line-height:2}
+  .info-panel{padding:24px;border-radius:16px}
+  .info-panel .info-text{font-size:17px;line-height:2}
+  .info-panel .author-info .name{font-size:18px}
+  .info-panel .author-info .bio{font-size:15px;line-height:1.8}
+  .filter-tabs button{padding:10px 24px;font-size:16px;border-radius:12px}
+  .cal-grid .day-cell{border-radius:14px}
+  .cal-num{font-size:17px}
+  .poem-list-item{padding:18px 0}
+  .poem-list-item .info .name{font-size:18px}
+  .poem-list-item .info .meta{font-size:14px}
+}
+
+/* iPad Pro / 大平板 */
+@media(min-width:1024px){
+  #app{max-width:900px}
+  .header h1{font-size:32px}
+  .card .poem-body{font-size:22px;line-height:2.3}
+  .card .poem-title{font-size:26px}
+  .modal .poem-lines{font-size:28px;line-height:2.9}
+  .modal .poem-header .title{font-size:36px}
 }
 </style>
 </head>
