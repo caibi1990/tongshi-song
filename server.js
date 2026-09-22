@@ -488,9 +488,15 @@ app.post('/api/qq-doc/write-jump', async (req, res) => {
       return res.status(500).json({ error: 'QQ Doc access token not configured' });
     }
 
-    const { sheetId, sheetTitle } = await qqDocFindSheet(dateStr);
+    // 目标日期的工作表不存在就地补建一张带结构的空表，再写入。
+    // 这样不存在「老师还没建当天表」的窗口期，也不会预先建出未来几天的表。
+    let { sheetId, sheetTitle } = await qqDocFindSheet(dateStr);
+    let sheetCreated = false;
     if (!sheetId) {
-      return res.status(404).json({ error: `Sheet "${sheetTitle}" not found in spreadsheet` });
+      const tpl = await qqDocReadTemplateFromLatest();
+      sheetId = await qqDocCreateSheet(sheetTitle, tpl);
+      sheetCreated = true;
+      console.log(`QQ Doc 工作表 ${sheetTitle} 不存在，已按模板补建（学生 ${tpl.students.length} 人）`);
     }
 
     // Map taskSec to column index (0-based): 180->col2, 60->col3, 30->col4
@@ -540,7 +546,7 @@ app.post('/api/qq-doc/write-jump', async (req, res) => {
       return res.status(500).json({ error: result.message || 'QQ Doc API error' });
     }
 
-    res.json({ ok: true, sheetTitle, row: targetRow, col, value: cellValue });
+    res.json({ ok: true, sheetTitle, row: targetRow, col, value: cellValue, sheetCreated });
   } catch (err) {
     console.error('QQ Doc write error:', err);
     res.status(500).json({ error: err.message });
@@ -692,6 +698,36 @@ async function qqDocFillTemplate(sheetId, tpl) {
   await qqDocBatchUpdate(requests);
 }
 
+// 兜底模板：连一张已有表都没有时用
+const FALLBACK_TEMPLATE = {
+  title: '跳绳记录',
+  headerRow: 2,
+  headers: ['序号', '姓名', '3分钟单摇', '1分钟单摇', '30秒单摇', '三分钟单摇', '一分钟', '30秒'],
+  students: [],
+};
+
+// 取最新一张已有工作表的结构作为模板（跟随老师当前格式）
+async function qqDocReadTemplateFromLatest() {
+  const sheets = await qqDocFetchSheetsFresh();
+  const latest = sheets[sheets.length - 1];
+  if (!latest) return FALLBACK_TEMPLATE;
+  return (await qqDocReadTemplate(latest.sheetId)) || FALLBACK_TEMPLATE;
+}
+
+// 新建一张带结构的空表，返回其 sheetId
+async function qqDocCreateSheet(title, tpl) {
+  await qqDocBatchUpdate([{
+    addSheetRequest: { title, rowCount: 200, columnCount: 26 },
+  }]);
+  // 接口不回传新建表的 id，重新列一次
+  const after = await qqDocFetchSheetsFresh();
+  const created = after.find((x) => x.title === title);
+  if (!created) throw new Error('新建后未找到工作表: ' + title);
+  await qqDocFillTemplate(created.sheetId, tpl);
+  qqSheetCache = {};   // 让写入路径的缓存失效
+  return created.sheetId;
+}
+
 // GET /api/qq-doc/ensure-sheets?days=3&dryRun=1
 app.get('/api/qq-doc/ensure-sheets', async (req, res) => {
   try {
@@ -707,12 +743,7 @@ app.get('/api/qq-doc/ensure-sheets', async (req, res) => {
     );
 
     // 从最新一张表取模板；没有可用的就用内置表头兜底
-    const tpl = (await qqDocReadTemplate(sheets[sheets.length - 1]?.sheetId)) || {
-      title: '跳绳记录',
-      headerRow: 2,
-      headers: ['序号', '姓名', '3分钟单摇', '1分钟单摇', '30秒单摇', '三分钟单摇', '一分钟', '30秒'],
-      students: [],
-    };
+    const tpl = (await qqDocReadTemplate(sheets[sheets.length - 1]?.sheetId)) || FALLBACK_TEMPLATE;
 
     const created = [], skipped = [], failed = [];
 
@@ -725,19 +756,7 @@ app.get('/api/qq-doc/ensure-sheets', async (req, res) => {
       if (dryRun) { created.push(title + '(dryRun)'); continue; }
 
       try {
-        // 1) 新建工作表
-        await qqDocBatchUpdate([{
-          addSheetRequest: { title, rowCount: 200, columnCount: 26 },
-        }]);
-
-        // 2) 取回新表的 sheetId（接口不回传，只能重新列一次）
-        const after = await qqDocFetchSheetsFresh();
-        const createdSheet = after.find((s) => s.title === title);
-        if (!createdSheet) throw new Error('新建后未找到工作表: ' + title);
-
-        // 3) 写入表头与序号姓名
-        await qqDocFillTemplate(createdSheet.sheetId, tpl);
-
+        await qqDocCreateSheet(title, tpl);
         existing.add(key);
         created.push(title);
         console.log(`QQ Doc 已补建工作表 ${title}（表头 ${tpl.headers.length} 列，学生 ${tpl.students.length} 人）`);
