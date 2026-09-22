@@ -111,6 +111,8 @@
 
   /* Timer card */
   .timer-card {
+    position: relative;
+    overflow: hidden;              /* 摄像头背景不溢出圆角 */
     background: var(--card);
     border-radius: var(--radius);
     padding: 44px 24px;
@@ -122,9 +124,6 @@
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 22px;
   }
   .timer-display {
     /* 随屏宽缩放：小屏不溢出，大屏更醒目 */
@@ -339,9 +338,6 @@
     transition: background 0.08s;
   }
   .beat-dot.flash { background: var(--primary); }
-
-  /* Timer card needs relative for countdown overlay */
-  .timer-card { position: relative; }
 
   /* History card */
   .history-card {
@@ -622,32 +618,52 @@
   .switch.on::after { transform: translateX(19px); }
   .switch:disabled { opacity: .45; cursor: not-allowed; }
 
-  /* 取景预览 */
-  .cam-preview { display: none; }
-  .cam-preview.show { display: block; }
-  .cam-preview-frame {
-    position: relative; background: #000; border-radius: var(--radius);
-    overflow: hidden; display: flex; align-items: center; justify-content: center;
-    min-height: 180px; max-height: 44vh;
+  /* 摄像头作为计时卡背景（开启时显示，铺满整卡） */
+  .cam-bg {
+    position: absolute; inset: 0; display: none;
+    background: #000; overflow: hidden;
   }
-  .cam-preview-frame video { width: 100%; height: 100%; object-fit: contain; display: block; }
-  .cam-preview-frame canvas {
-    position: absolute; pointer-events: none;
+  .timer-card.cam-on .cam-bg { display: block; }
+  .cam-bg video {
+    width: 100%; height: 100%; object-fit: cover; display: block;
   }
-  .cam-preview-frame.mirrored video,
-  .cam-preview-frame.mirrored canvas { transform: scaleX(-1); }
+  .cam-bg canvas { position: absolute; pointer-events: none; }
+  .cam-bg.mirrored video,
+  .cam-bg.mirrored canvas { transform: scaleX(-1); }
+
   .cam-preview-msg {
     position: absolute; inset: 0; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 8px;
     color: var(--muted); font-size: 13px; text-align: center; padding: 16px;
-    background: #0b0d12;
+    background: #0b0d12; z-index: 3;
   }
-  .cam-preview-frame.live .cam-preview-msg { display: none; }
+  .cam-bg.live .cam-preview-msg { display: none; }
   .cam-preview-msg .big { font-size: 32px; }
-  .cam-preview-bar {
-    display: flex; align-items: center; gap: 8px; margin-top: 8px;
-    font-size: 12px; color: var(--muted);
+
+  /* 计时内容层：摄像头开启时变成磨砂玻璃盖在画面上。
+     透明度取 0.7 —— 太透会让深色数字压在暗画面上看不清 */
+  .timer-content {
+    position: relative; z-index: 2; width: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 22px; flex: 1;
   }
+  .timer-card.cam-on .timer-content {
+    backdrop-filter: blur(14px) saturate(1.15);
+    -webkit-backdrop-filter: blur(14px) saturate(1.15);
+    background: rgba(255,255,255,0.70);
+  }
+
+  /* 摄像头状态条：贴在卡片底部 */
+  .cam-preview-bar {
+    display: none; align-items: center; gap: 8px;
+    position: relative; z-index: 2;
+    flex-shrink: 0; width: 100%;
+    margin-top: 18px; padding-top: 12px;
+    font-size: 12px; color: var(--muted);
+    border-top: 1px solid rgba(0,0,0,0.08);
+  }
+  .timer-card.cam-on .cam-preview-bar { display: flex; }
   .cam-preview-bar .cp-state { flex: 1; }
   .chip-btn {
     background: var(--bg); border: 1px solid var(--border); color: var(--text);
@@ -857,8 +873,7 @@
     .switch { width: 54px; height: 32px; border-radius: 16px; }
     .switch::after { width: 26px; height: 26px; }
     .switch.on::after { transform: translateX(22px); }
-    .cam-preview-frame { max-height: 50vh; }
-    .cam-preview-bar { font-size: 14px; }
+    .cam-preview-bar { font-size: 14px; margin-top: 22px; padding-top: 14px; }
     .chip-btn { font-size: 14px; padding: 9px 16px; }
     .stage-count .sc-num { font-size: 72px; }
     .stage-count .sc-unit { font-size: 24px; }
@@ -913,9 +928,9 @@
       <button class="switch" id="camSwitch"></button>
     </div>
 
-    <!-- 取景预览 -->
-    <div class="cam-preview" id="camPreview">
-      <div class="cam-preview-frame" id="camPreviewFrame">
+    <!-- 取景预览已并入计时卡：摄像头画面作卡片背景，计时内容为磨砂玻璃层 -->
+    <div class="timer-card" id="timerCard">
+      <div class="cam-bg" id="camBg">
         <video id="camVideo" playsinline muted autoplay></video>
         <canvas id="camCanvas"></canvas>
         <div class="cam-preview-msg" id="camPreviewMsg">
@@ -930,19 +945,20 @@
           <div class="ml-sub" id="modelLoadingSub">首次需下载约 15MB，加载一次后会缓存</div>
         </div>
       </div>
-      <div class="cam-preview-bar">
+
+      <div class="timer-content" id="timerContent">
+        <div class="timer-display" id="timerDisplay">03:00</div>
+        <div class="timer-label" id="timerLabel">准备开始</div>
+        <div class="btn-col">
+          <button class="start-btn idle" id="startBtn">▶️ 开始</button>
+          <button class="reset-btn" id="resetBtn" style="display:none">复位</button>
+        </div>
+      </div>
+
+      <div class="cam-preview-bar" id="camPreviewBar">
         <span class="cp-state" id="camPreviewState">—</span>
         <button class="chip-btn" id="camSwitchBtn" disabled>🔄 切换</button>
         <button class="chip-btn" id="camRetryBtn" style="display:none">重试</button>
-      </div>
-    </div>
-
-    <div class="timer-card">
-      <div class="timer-display" id="timerDisplay">03:00</div>
-      <div class="timer-label" id="timerLabel">准备开始</div>
-      <div class="btn-col">
-        <button class="start-btn idle" id="startBtn">▶️ 开始</button>
-        <button class="reset-btn" id="resetBtn" style="display:none">复位</button>
       </div>
     </div>
 
@@ -1955,7 +1971,7 @@ function switchView(view) {
     dateLabel.style.display = '';
     // 回到跳绳页：开关仍为开则重新开启摄像头
     if (camEnabled && !camStream) {
-      camPreview.classList.add('show');
+      setCamOn(true);
       startCameraFlow();
     }
     renderHistory();
@@ -2181,8 +2197,8 @@ document.getElementById('aboutOverlay').addEventListener('click', (e) => {
 //   模型与 WASM 运行时自托管于本站，首次开启时才动态加载。
 // ══════════════════════════════════════════════════════
 const camSwitch = document.getElementById('camSwitch');
-const camPreview = document.getElementById('camPreview');
-const camPreviewFrame = document.getElementById('camPreviewFrame');
+const timerCard = document.getElementById('timerCard');
+const camBg = document.getElementById('camBg');
 const camPreviewText = document.getElementById('camPreviewText');
 const camPreviewState = document.getElementById('camPreviewState');
 const camSwitchBtn = document.getElementById('camSwitchBtn');
@@ -2288,12 +2304,14 @@ function fitStageFrame() {
   stageFrame.classList.toggle('mirrored', camIsFront);
 }
 
-// 预览：canvas 精确覆盖 contain 后的视频内容区，保证骨架不错位
+// 背景层用的是 object-fit: cover（铺满卡片、不留黑边），
+// canvas 必须按 cover 的实际显示区域定位，否则骨架会和画面对不上：
+// 缩放取 max，居中后偏移量可能为负（画面超出容器被裁掉）
 function layoutPreviewCanvas() {
   const vw = camVideo.videoWidth, vh = camVideo.videoHeight;
-  const W = camPreviewFrame.clientWidth, H = camPreviewFrame.clientHeight;
+  const W = camBg.clientWidth, H = camBg.clientHeight;
   if (!vw || !vh || !W || !H) return;
-  const scale = Math.min(W / vw, H / vh);
+  const scale = Math.max(W / vw, H / vh);
   const dw = Math.round(vw * scale), dh = Math.round(vh * scale);
   camCanvas.width = vw;
   camCanvas.height = vh;
@@ -2301,7 +2319,7 @@ function layoutPreviewCanvas() {
   camCanvas.style.height = dh + 'px';
   camCanvas.style.left = Math.round((W - dw) / 2) + 'px';
   camCanvas.style.top = Math.round((H - dh) / 2) + 'px';
-  camPreviewFrame.classList.toggle('mirrored', camIsFront);
+  camBg.classList.toggle('mirrored', camIsFront);
 }
 
 async function attachStream(videoEl) {
@@ -2356,9 +2374,8 @@ async function openCamStream(deviceId) {
   await attachStream(camVideo);
   camReady = true;
 
-  camPreviewFrame.classList.add('live');
+  camBg.classList.add('live');
   const vw = camVideo.videoWidth, vh = camVideo.videoHeight;
-  if (vw && vh) camPreviewFrame.style.aspectRatio = `${vw} / ${vh}`;
   layoutPreviewCanvas();
   camPreviewState.textContent = `${camIsFront ? '前置' : '后置'}镜头` + (vw ? ` ${vw}×${vh}` : '');
   camSwitchBtn.disabled = false;
@@ -2385,7 +2402,7 @@ async function startCameraFlow() {
     setCamEnabled(false);
     return;
   }
-  camPreviewFrame.classList.remove('live', 'mirrored');
+  camBg.classList.remove('live', 'mirrored');
   camPreviewText.textContent = '正在开启摄像头…';
   camRetryBtn.style.display = 'none';
   camSwitchBtn.disabled = true;
@@ -2406,7 +2423,7 @@ async function startCameraFlow() {
       OverconstrainedError: '摄像头不支持所需分辨率',
     }[e.name] || e.message;
     camReady = false;
-    camPreviewFrame.classList.remove('live');
+    camBg.classList.remove('live');
     camPreviewText.textContent = hint;
     camRetryBtn.style.display = 'inline-block';
     camSwitchBtn.disabled = true;
@@ -2426,7 +2443,7 @@ async function switchCam() {
   try {
     await openCamStream(null);
   } catch (e) {
-    camPreviewFrame.classList.remove('live');
+    camBg.classList.remove('live');
     camPreviewText.textContent = '切换镜头失败：' + e.message;
     camRetryBtn.style.display = 'inline-block';
   }
@@ -2440,10 +2457,18 @@ function closeCamera() {
   camVideo.srcObject = null;
   stageVideo.srcObject = null;
   camReady = false;
-  camPreview.classList.remove('show');
-  camPreviewFrame.classList.remove('live', 'mirrored');
+  setCamOn(false);
+  camBg.classList.remove('live', 'mirrored');
   camSwitchBtn.disabled = true;
   camPreviewState.textContent = '—';
+}
+
+// 卡片切换到「摄像头背景」形态：显示画面层 + 状态条，内容层转为磨砂玻璃
+function setCamOn(on) {
+  timerCard.classList.toggle('cam-on', on);
+  if (!on) return;
+  // 卡片尺寸变化后再算一次 canvas 位置
+  requestAnimationFrame(layoutPreviewCanvas);
 }
 
 function setCamEnabled(on) {
@@ -2451,7 +2476,7 @@ function setCamEnabled(on) {
   localStorage.setItem('jumprope_camera_on', on ? 'true' : 'false');
   camSwitch.classList.toggle('on', on);
   if (on) {
-    camPreview.classList.add('show');
+    setCamOn(true);
     startCameraFlow();
   } else {
     closeCamera();
@@ -2771,7 +2796,7 @@ document.getElementById('cmOk').addEventListener('click', () => {
 
 window.addEventListener('resize', () => {
   if (camStage.classList.contains('show')) fitStageFrame();
-  if (camPreview.classList.contains('show')) layoutPreviewCanvas();
+  if (timerCard.classList.contains('cam-on')) layoutPreviewCanvas();
 });
 
 // 页面切后台时暂停识别，回来续上
@@ -2800,7 +2825,7 @@ document.addEventListener('visibilitychange', () => {
 
   if (granted) {
     camSwitch.classList.add('on');
-    camPreview.classList.add('show');
+    setCamOn(true);
     startCameraFlow();
   } else {
     camEnabled = false;
