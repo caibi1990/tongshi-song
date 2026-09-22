@@ -119,20 +119,21 @@
   }
   .start-btn:active { transform: scale(0.95); }
 
-  .btn-row { display: flex; align-items: center; gap: 14px; max-width: 100%; }
+  .btn-col { display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .reset-btn {
-    width: 48px; height: 48px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    background: var(--card);
-    font-size: 18px;
+    border: none;
+    background: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
     cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
+    padding: 6px 20px;
+    border-radius: 20px;
     transition: all 0.2s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    flex-shrink: 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
-  .reset-btn:active { border-color: var(--primary); background: var(--primary-light); transform: scale(0.93); }
+  .reset-btn:active { color: var(--primary); background: var(--primary-light); }
 
   /* Countdown overlay (5s prep) */
   .countdown-overlay {
@@ -477,8 +478,8 @@
     .timer-label { font-size: 16px; }
     .start-btn { width: 148px; height: 148px; font-size: 24px; }
     #jumpView, #calendarView { gap: 20px; }
-    .btn-row { gap: 20px; }
-    .reset-btn { width: 64px; height: 64px; font-size: 22px; }
+    .btn-col { gap: 14px; }
+    .reset-btn { font-size: 15px; padding: 8px 24px; }
     .countdown-number { font-size: 120px; }
     .countdown-label { font-size: 22px; }
     .skip-btn { font-size: 17px; padding: 12px 32px; }
@@ -529,7 +530,7 @@
     #jumpView, #calendarView { gap: 24px; }
     .timer-display { font-size: 108px; }
     .start-btn { width: 164px; height: 164px; font-size: 26px; }
-    .reset-btn { width: 72px; height: 72px; font-size: 26px; }
+    .reset-btn { font-size: 16px; padding: 8px 28px; }
     .counter-value { font-size: 64px; }
   }
 </style>
@@ -548,9 +549,9 @@
     <div class="timer-card">
       <div class="timer-display" id="timerDisplay">03:00</div>
       <div class="timer-label" id="timerLabel">准备开始</div>
-      <div class="btn-row">
+      <div class="btn-col">
         <button class="start-btn idle" id="startBtn">▶️ 开始</button>
-        <button class="reset-btn" id="resetBtn" style="display:none">🔄 复位</button>
+        <button class="reset-btn" id="resetBtn" style="display:none">复位</button>
       </div>
       <!-- 5s countdown overlay -->
       <div class="countdown-overlay" id="countdownOverlay">
