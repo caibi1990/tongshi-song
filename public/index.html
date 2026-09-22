@@ -43,8 +43,14 @@
       width: 100%;
       max-width: 400px;
     }
+    .cards .card:last-child:nth-child(odd) {
+      grid-column: 1 / -1;
+      max-width: 220px;
+      justify-self: center;
+    }
     @media (max-width: 380px) {
       .cards { grid-template-columns: 1fr; }
+      .cards .card:last-child:nth-child(odd) { max-width: none; }
     }
     /* iPad & Tablet — 儿童友好大字模式 */
     @media (min-width: 768px) {
@@ -103,6 +109,9 @@
     .card-icon.poetry {
       background: linear-gradient(135deg, #f093fb, #f5576c);
     }
+    .card-icon.jumprope {
+      background: linear-gradient(135deg, #ff6b35, #ff9a5c);
+    }
     .card-title {
       font-size: 17px;
       font-weight: 600;
@@ -136,6 +145,11 @@
       <div class="card-icon poetry">📜</div>
       <div class="card-title">古诗背诵</div>
       <div class="card-desc">116首必背古诗<br>朗读打卡</div>
+    </a>
+    <a class="card" href="/jump-rope.html">
+      <div class="card-icon jumprope">🏃</div>
+      <div class="card-title">跳绳打卡</div>
+      <div class="card-desc">每日跳绳任务<br>计时计数记录</div>
     </a>
   </div>
   <div class="footer">彭泽恩的学习小站</div>
