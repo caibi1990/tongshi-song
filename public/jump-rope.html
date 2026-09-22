@@ -321,6 +321,81 @@
   }
   .history-item .hi-delete:active { color: #ef4444; }
 
+  /* Calendar */
+  .calendar-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .cal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .cal-header .cal-title { font-size: 15px; font-weight: 700; color: var(--text); }
+  .cal-header button {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    width: 30px; height: 30px; font-size: 14px; cursor: pointer; color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cal-header button:active { background: var(--primary-light); border-color: var(--primary); }
+  .cal-weekdays {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    text-align: center; font-size: 11px; color: var(--muted); margin-bottom: 6px;
+  }
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 10px;
+    font-size: 14px; font-weight: 600; color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    border: 2px solid transparent;
+  }
+  .cal-day:active { transform: scale(0.92); }
+  .cal-day.empty { cursor: default; }
+  .cal-day.today { border-color: var(--primary); }
+  .cal-day.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .cal-day.has-record::after {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    position: absolute; bottom: 4px;
+  }
+  .cal-day.selected.has-record::after { background: #fff; }
+  .cal-day.other-month { color: #ddd; }
+
+  /* Best records */
+  .best-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .best-title {
+    font-size: 15px; font-weight: 600; color: var(--muted);
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .best-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .best-item {
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 12px;
+    background: var(--bg);
+  }
+  .best-item .bi-icon { font-size: 20px; margin-bottom: 4px; }
+  .best-item .bi-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .best-item .bi-value { font-size: 24px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
+  .best-item .bi-unit { font-size: 11px; color: var(--muted); }
+  .best-item .bi-date { font-size: 10px; color: #ccc; margin-top: 4px; }
+
   /* Bottom tabs */
   .tab-bar {
     background: var(--card);
@@ -420,6 +495,18 @@
     .history-item .hi-count { font-size: 24px; }
     .history-item .hi-index { width: 34px; height: 34px; font-size: 15px; }
     .history-item .hi-time { font-size: 15px; }
+    .calendar-card { padding: 20px 24px; border-radius: 20px; }
+    .cal-header .cal-title { font-size: 17px; }
+    .cal-day { font-size: 16px; border-radius: 12px; }
+    .cal-weekdays { font-size: 13px; }
+    .best-card { padding: 20px 24px; border-radius: 20px; }
+    .best-title { font-size: 17px; }
+    .best-item { padding: 16px 10px; border-radius: 14px; }
+    .best-item .bi-icon { font-size: 24px; }
+    .best-item .bi-label { font-size: 13px; }
+    .best-item .bi-value { font-size: 30px; }
+    .best-item .bi-unit { font-size: 13px; }
+    .best-item .bi-date { font-size: 12px; }
     .tab-item .tab-icon { font-size: 28px; }
     .tab-item .tab-label { font-size: 13px; }
     .tab-item { padding: 12px 0 10px; }
@@ -443,14 +530,27 @@
 <div class="header">
   <a href="/index.html" class="back-link">← 首页</a>
   <h1>🏃 跳绳打卡</h1>
-  <div class="date-nav">
-    <button id="prevDay">‹</button>
-    <span class="date-label" id="dateLabel"></span>
-    <button id="nextDay">›</button>
-  </div>
+  <span class="date-label" id="dateLabel" style="font-size:14px;opacity:0.9;flex-shrink:0"></span>
 </div>
 
 <div class="main">
+  <!-- Calendar -->
+  <div class="calendar-card">
+    <div class="cal-header">
+      <button id="calPrev">‹</button>
+      <span class="cal-title" id="calTitle"></span>
+      <button id="calNext">›</button>
+    </div>
+    <div class="cal-weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+  <!-- Best records -->
+  <div class="best-card">
+    <div class="best-title">🏆 历史最佳</div>
+    <div class="best-grid" id="bestGrid"></div>
+  </div>
+
   <div class="timer-card">
     <div class="timer-display" id="timerDisplay">03:00</div>
     <div class="timer-label" id="timerLabel">准备开始</div>
@@ -900,6 +1000,8 @@ document.getElementById('submitBtn').addEventListener('click', () => {
   });
   saveRecords(currentTask, currentDate, records);
   renderHistory();
+  renderCalendar();
+  renderBestRecords();
   playBeep(523, 0.2); // C5 confirm
   speakAlert(`记录成功，${jumpCount}个`);
 
@@ -935,6 +1037,8 @@ function renderHistory() {
       records.splice(idx, 1);
       saveRecords(currentTask, currentDate, records);
       renderHistory();
+      renderCalendar();
+      renderBestRecords();
     });
   });
 }
@@ -954,22 +1058,108 @@ document.querySelectorAll('.tab-item').forEach(tab => {
   });
 });
 
-// --- Date Nav ---
-document.getElementById('prevDay').addEventListener('click', () => {
-  currentDate = shiftDate(currentDate, -1);
-  updateDateLabel();
-  renderHistory();
+// --- Calendar ---
+let calYear, calMonth; // currently displayed month
+{
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calGrid');
+  const title = document.getElementById('calTitle');
+  title.textContent = `${calYear}年${calMonth + 1}月`;
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const today = todayStr();
+
+  let html = '';
+  // Empty cells before first day
+  for (let i = 0; i < firstDay; i++) {
+    html += '<div class="cal-day empty"></div>';
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === today;
+    const isSelected = dateStr === currentDate;
+    const hasRecord = TASKS_KEYS.some(t => loadRecords(t, dateStr).length > 0);
+
+    let cls = 'cal-day';
+    if (isToday) cls += ' today';
+    if (isSelected) cls += ' selected';
+    if (hasRecord) cls += ' has-record';
+
+    html += `<div class="${cls}" data-date="${dateStr}">${d}</div>`;
+  }
+  grid.innerHTML = html;
+
+  // Click handlers
+  grid.querySelectorAll('.cal-day:not(.empty)').forEach(el => {
+    el.addEventListener('click', () => {
+      const date = el.dataset.date;
+      if (date > todayStr()) return;
+      currentDate = date;
+      updateDateLabel();
+      renderCalendar();
+      renderHistory();
+    });
+  });
+}
+
+const TASKS_KEYS = [180, 60, 30];
+
+document.getElementById('calPrev').addEventListener('click', () => {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
 });
-document.getElementById('nextDay').addEventListener('click', () => {
-  const next = shiftDate(currentDate, 1);
-  if (next > todayStr()) return; // Can't go to future
-  currentDate = next;
-  updateDateLabel();
-  renderHistory();
+document.getElementById('calNext').addEventListener('click', () => {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
 });
 
 function updateDateLabel() {
   document.getElementById('dateLabel').textContent = formatDateCN(currentDate);
+}
+
+// --- Best Records ---
+function renderBestRecords() {
+  const icons = { 180: '⏱️', 60: '🏃', 30: '⚡' };
+  const labels = { 180: '3分钟', 60: '1分钟', 30: '30秒' };
+  const container = document.getElementById('bestGrid');
+
+  let html = '';
+  for (const task of TASKS_KEYS) {
+    let best = null;
+    // Scan all dates in localStorage for this task
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(`jumprope_${task}_`)) continue;
+      try {
+        const records = JSON.parse(localStorage.getItem(key));
+        for (const r of records) {
+          if (!best || r.count > best.count) {
+            best = { count: r.count, date: key.replace(`jumprope_${task}_`, '') };
+          }
+        }
+      } catch {}
+    }
+    const val = best ? best.count : '-';
+    const dateStr = best ? formatDateCN(best.date).split(' ')[0] : '';
+    html += `
+      <div class="best-item">
+        <div class="bi-icon">${icons[task]}</div>
+        <div class="bi-label">${labels[task]}</div>
+        <div class="bi-value">${val}</div>
+        <div class="bi-unit">个</div>
+        ${dateStr ? `<div class="bi-date">${dateStr}</div>` : ''}
+      </div>`;
+  }
+  container.innerHTML = html;
 }
 
 // --- Metronome UI Controls ---
@@ -1005,6 +1195,8 @@ metroToggle.addEventListener('click', () => {
 // --- Init ---
 updateDateLabel();
 resetTimer();
+renderCalendar();
+renderBestRecords();
 renderHistory();
 
 // iOS audio unlock
