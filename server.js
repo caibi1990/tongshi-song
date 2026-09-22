@@ -350,12 +350,11 @@ const QQ_DOC = {
   clientId: process.env.QQ_DOC_CLIENT_ID || '542a94f67e894e1cbc6c8eb2fcf5a5d8',
   accessToken: process.env.QQ_DOC_ACCESS_TOKEN || '',
   openId: process.env.QQ_DOC_OPEN_ID || 'a263363ce9d746738a5393d90a809644',
-  targetName: '彭泽恩',
-  targetRow: 20, // 0-based row index in each sheet
 };
 
-// Cache: sheet title -> sheetId mapping
+// Caches
 let qqSheetCache = {};
+let qqNamesCache = null; // [{row, name}]
 
 async function qqDocGetSheets() {
   if (Object.keys(qqSheetCache).length > 0) return qqSheetCache;
@@ -387,13 +386,59 @@ async function qqDocFindSheet(dateStr) {
   return { sheetId: sheets[sheetTitle], sheetTitle };
 }
 
+// Get student names from first available sheet (cached)
+async function qqDocGetNames() {
+  if (qqNamesCache) return qqNamesCache;
+  if (!QQ_DOC.accessToken) return [];
+
+  // Use first sheet to read names (names are same across all sheets)
+  const sheets = await qqDocGetSheets();
+  const firstSheetId = Object.values(sheets)[0];
+  if (!firstSheetId) return [];
+
+  const res = await fetch(
+    `https://docs.qq.com/openapi/spreadsheet/v3/files/${QQ_DOC.fileId}/${firstSheetId}/B3:B50`,
+    {
+      headers: {
+        'Access-Token': QQ_DOC.accessToken,
+        'Client-Id': QQ_DOC.clientId,
+        'Open-Id': QQ_DOC.openId,
+      },
+    }
+  );
+  const data = await res.json();
+  const rows = data.gridData?.rows || [];
+  const startRow = data.gridData?.startRow || 0;
+
+  qqNamesCache = [];
+  for (let i = 0; i < rows.length; i++) {
+    const vals = rows[i]?.values || [];
+    const name = vals[0]?.cellValue?.text?.trim();
+    if (name) {
+      qqNamesCache.push({ row: startRow + i, name });
+    }
+  }
+  console.log('QQ Doc names cached:', qqNamesCache.length, 'students');
+  return qqNamesCache;
+}
+
+// API: GET /api/qq-doc/names — return student name list
+app.get('/api/qq-doc/names', async (req, res) => {
+  try {
+    const names = await qqDocGetNames();
+    res.json({ names });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Write jump rope record to QQ Doc
-// taskSec: 180/60/30, count: number, dateStr: YYYY-MM-DD
+// taskSec: 180/60/30, count: number, dateStr: YYYY-MM-DD, targetRow: number (0-based)
 app.post('/api/qq-doc/write-jump', async (req, res) => {
   try {
-    const { taskSec, count, dateStr } = req.body;
-    if (!taskSec || !count || !dateStr) {
-      return res.status(400).json({ error: 'Missing taskSec, count, or dateStr' });
+    const { taskSec, count, dateStr, targetRow } = req.body;
+    if (!taskSec || !count || !dateStr || targetRow == null) {
+      return res.status(400).json({ error: 'Missing taskSec, count, dateStr, or targetRow' });
     }
     if (!QQ_DOC.accessToken) {
       return res.status(500).json({ error: 'QQ Doc access token not configured' });
@@ -416,18 +461,15 @@ app.post('/api/qq-doc/write-jump', async (req, res) => {
       ? { text: '✓' }
       : { number: count };
 
-    // Build updateRangeRequest
     const body = {
       requests: [{
         updateRangeRequest: {
           sheetId,
           gridData: {
-            startRow: QQ_DOC.targetRow,
+            startRow: targetRow,
             startColumn: col,
             rows: [{
-              values: [{
-                cellValue,
-              }],
+              values: [{ cellValue }],
             }],
           },
         },
@@ -454,7 +496,7 @@ app.post('/api/qq-doc/write-jump', async (req, res) => {
       return res.status(500).json({ error: result.message || 'QQ Doc API error' });
     }
 
-    res.json({ ok: true, sheetTitle, row: QQ_DOC.targetRow, col, value: cellValue });
+    res.json({ ok: true, sheetTitle, row: targetRow, col, value: cellValue });
   } catch (err) {
     console.error('QQ Doc write error:', err);
     res.status(500).json({ error: err.message });
