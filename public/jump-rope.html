@@ -118,6 +118,103 @@
   }
   .start-btn:active { transform: scale(0.95); }
 
+  /* Countdown overlay (5s prep) */
+  .countdown-overlay {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.95);
+    border-radius: var(--radius);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 10;
+  }
+  .countdown-overlay.show { display: flex; }
+  .countdown-number {
+    font-size: 96px; font-weight: 900; color: var(--primary);
+    line-height: 1; animation: countPop 0.8s ease-out;
+  }
+  @keyframes countPop { from { transform: scale(1.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .countdown-label { font-size: 18px; color: var(--muted); font-weight: 600; }
+  .skip-btn {
+    margin-top: 8px;
+    background: none; border: 2px solid var(--border);
+    border-radius: 24px; padding: 10px 28px;
+    font-size: 15px; font-weight: 600; color: var(--muted);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .skip-btn:active { border-color: var(--primary); color: var(--primary); }
+
+  /* Metronome bar */
+  .metronome-bar {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .metro-icon { font-size: 20px; flex-shrink: 0; }
+  .metro-label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .metro-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    outline: none;
+  }
+  .metro-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .metro-value {
+    font-size: 18px; font-weight: 700; color: var(--primary);
+    min-width: 56px; text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .metro-unit { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .metro-toggle {
+    width: 44px; height: 26px;
+    border-radius: 13px;
+    border: none;
+    background: var(--border);
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .metro-toggle.on { background: var(--primary); }
+  .metro-toggle::after {
+    content: '';
+    position: absolute; top: 3px; left: 3px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .metro-toggle.on::after { transform: translateX(18px); }
+  /* Beat indicator */
+  .beat-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.08s;
+  }
+  .beat-dot.flash { background: var(--primary); }
+
+  /* Timer card needs relative for countdown overlay */
+  .timer-card { position: relative; }
+
   /* Counter card */
   .counter-card {
     background: var(--card);
@@ -284,6 +381,19 @@
     .timer-display { font-size: 96px; }
     .timer-label { font-size: 16px; }
     .start-btn { width: 148px; height: 148px; font-size: 24px; }
+    .countdown-number { font-size: 120px; }
+    .countdown-label { font-size: 22px; }
+    .skip-btn { font-size: 17px; padding: 12px 32px; }
+    .metronome-bar { padding: 16px 24px; border-radius: 20px; gap: 14px; }
+    .metro-icon { font-size: 24px; }
+    .metro-label { font-size: 15px; }
+    .metro-value { font-size: 22px; min-width: 64px; }
+    .metro-unit { font-size: 14px; }
+    .metro-slider::-webkit-slider-thumb { width: 28px; height: 28px; }
+    .metro-toggle { width: 50px; height: 30px; border-radius: 15px; }
+    .metro-toggle::after { width: 24px; height: 24px; }
+    .metro-toggle.on::after { transform: translateX(20px); }
+    .beat-dot { width: 12px; height: 12px; }
     .counter-card { padding: 28px; border-radius: 20px; }
     .counter-btn { width: 64px; height: 64px; font-size: 28px; }
     .counter-value { font-size: 56px; min-width: 130px; }
@@ -329,6 +439,23 @@
     <div class="timer-display" id="timerDisplay">03:00</div>
     <div class="timer-label" id="timerLabel">准备开始</div>
     <button class="start-btn idle" id="startBtn">▶️ 开始</button>
+    <!-- 5s countdown overlay -->
+    <div class="countdown-overlay" id="countdownOverlay">
+      <div class="countdown-number" id="countdownNum">5</div>
+      <div class="countdown-label">准备好，马上开始！</div>
+      <button class="skip-btn" id="skipCountdown">直接开始 →</button>
+    </div>
+  </div>
+
+  <!-- Metronome control bar -->
+  <div class="metronome-bar">
+    <span class="metro-icon">🥁</span>
+    <span class="metro-label">节拍</span>
+    <input type="range" class="metro-slider" id="metroSlider" min="60" max="240" step="5" value="150">
+    <span class="metro-value" id="metroValue">150</span>
+    <span class="metro-unit">次/分</span>
+    <div class="beat-dot" id="beatDot"></div>
+    <button class="metro-toggle on" id="metroToggle"></button>
   </div>
 
   <div class="counter-card" id="counterCard">
@@ -391,6 +518,18 @@ let remainingSeconds = 180;
 let isRunning = false;
 let jumpCount = 0;
 let audioCtx = null;
+
+// Countdown state
+let countdownInterval = null;
+let isCountingDown = false;
+
+// Metronome state
+let metroBPM = parseInt(localStorage.getItem('jumprope_bpm')) || 150;
+let metroEnabled = localStorage.getItem('jumprope_metro_on') !== 'false';
+let metroInterval = null;
+let metroNextNoteTime = 0;
+let metroLookahead = 25; // ms
+let metroScheduleAhead = 0.1; // s
 
 // --- Helpers ---
 function todayStr() {
@@ -475,6 +614,98 @@ function vibrate(pattern) {
   try { navigator.vibrate && navigator.vibrate(pattern); } catch(e) {}
 }
 
+// --- Metronome (Web Audio scheduler for precise timing) ---
+function metroPlayTick(time) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.06);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.06);
+  } catch(e) {}
+}
+
+function metroVisualBeat() {
+  const dot = document.getElementById('beatDot');
+  dot.classList.add('flash');
+  setTimeout(() => dot.classList.remove('flash'), 100);
+}
+
+function startMetronome() {
+  stopMetronome();
+  if (!metroEnabled || !isRunning) return;
+  const ctx = getAudioCtx();
+  if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+  metroNextNoteTime = ctx.currentTime + 0.05;
+  const intervalSec = 60 / metroBPM;
+
+  metroInterval = setInterval(() => {
+    const ctx = getAudioCtx();
+    while (metroNextNoteTime < ctx.currentTime + metroScheduleAhead) {
+      metroPlayTick(metroNextNoteTime);
+      // Visual beat synced via setTimeout
+      const delay = Math.max(0, (metroNextNoteTime - ctx.currentTime) * 1000);
+      setTimeout(metroVisualBeat, delay);
+      metroNextNoteTime += intervalSec;
+    }
+  }, metroLookahead);
+}
+
+function stopMetronome() {
+  clearInterval(metroInterval);
+  metroInterval = null;
+}
+
+// --- Countdown (5s prep) ---
+const countdownOverlay = document.getElementById('countdownOverlay');
+const countdownNum = document.getElementById('countdownNum');
+
+function startCountdownThenStart() {
+  if (isCountingDown) return;
+  isCountingDown = true;
+  let count = 5;
+  countdownNum.textContent = count;
+  countdownOverlay.classList.add('show');
+  getAudioCtx().resume().catch(()=>{});
+  playBeep(440, 0.15);
+
+  countdownInterval = setInterval(() => {
+    count--;
+    if (count > 0) {
+      countdownNum.textContent = count;
+      // Re-trigger animation
+      countdownNum.style.animation = 'none';
+      void countdownNum.offsetWidth;
+      countdownNum.style.animation = 'countPop 0.8s ease-out';
+      playBeep(440, 0.15);
+    } else {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      isCountingDown = false;
+      countdownOverlay.classList.remove('show');
+      playBeep(880, 0.3);
+      speakAlert('开始！');
+      actuallyStartTimer();
+    }
+  }, 1000);
+}
+
+function skipCountdown() {
+  clearInterval(countdownInterval);
+  countdownInterval = null;
+  isCountingDown = false;
+  countdownOverlay.classList.remove('show');
+  actuallyStartTimer();
+}
+
+document.getElementById('skipCountdown').addEventListener('click', skipCountdown);
+
 // --- Timer ---
 const timerDisplay = document.getElementById('timerDisplay');
 const timerLabel = document.getElementById('timerLabel');
@@ -484,6 +715,14 @@ const countValue = document.getElementById('countValue');
 
 function resetTimer() {
   stopTimer();
+  stopMetronome();
+  // Cancel any pending countdown
+  if (isCountingDown) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+    isCountingDown = false;
+    countdownOverlay.classList.remove('show');
+  }
   remainingSeconds = currentTask;
   timerDisplay.textContent = formatTime(remainingSeconds);
   timerDisplay.className = 'timer-display';
@@ -495,8 +734,7 @@ function resetTimer() {
   countValue.textContent = '0';
 }
 
-function startTimer() {
-  if (isRunning) { stopTimer(); return; }
+function actuallyStartTimer() {
   isRunning = true;
   timerDisplay.classList.add('running');
   timerLabel.textContent = '跳绳中...';
@@ -504,8 +742,8 @@ function startTimer() {
   startBtn.innerHTML = '⏹ 停止';
   counterCard.classList.remove('show');
 
-  // Unlock audio context on user gesture
   getAudioCtx().resume().catch(()=>{});
+  startMetronome();
 
   const taskConfig = TASKS[currentTask];
   const alertedSet = new Set();
@@ -532,10 +770,16 @@ function startTimer() {
   }, 1000);
 }
 
+function startTimer() {
+  if (isRunning) { stopTimer(); return; }
+  startCountdownThenStart();
+}
+
 function stopTimer() {
   clearInterval(timerInterval);
   timerInterval = null;
   isRunning = false;
+  stopMetronome();
   timerDisplay.classList.remove('running');
   if (remainingSeconds > 0) {
     timerLabel.textContent = '已暂停';
@@ -548,6 +792,7 @@ function finishTimer() {
   clearInterval(timerInterval);
   timerInterval = null;
   isRunning = false;
+  stopMetronome();
   remainingSeconds = 0;
   timerDisplay.textContent = '00:00';
   timerDisplay.classList.remove('running');
@@ -568,6 +813,11 @@ function finishTimer() {
 startBtn.addEventListener('click', () => {
   if (remainingSeconds <= 0 && !isRunning) {
     resetTimer();
+    return;
+  }
+  // If paused, resume directly without countdown
+  if (!isRunning && remainingSeconds < currentTask && remainingSeconds > 0) {
+    actuallyStartTimer();
     return;
   }
   startTimer();
@@ -665,7 +915,7 @@ function renderHistory() {
 // --- Tabs ---
 document.querySelectorAll('.tab-item').forEach(tab => {
   tab.addEventListener('click', () => {
-    if (isRunning) {
+    if (isRunning || isCountingDown) {
       speakAlert('请先停止计时再切换');
       return;
     }
@@ -694,6 +944,36 @@ document.getElementById('nextDay').addEventListener('click', () => {
 function updateDateLabel() {
   document.getElementById('dateLabel').textContent = formatDateCN(currentDate);
 }
+
+// --- Metronome UI Controls ---
+const metroSlider = document.getElementById('metroSlider');
+const metroValueEl = document.getElementById('metroValue');
+const metroToggle = document.getElementById('metroToggle');
+
+metroSlider.value = metroBPM;
+metroValueEl.textContent = metroBPM;
+if (!metroEnabled) metroToggle.classList.remove('on');
+
+metroSlider.addEventListener('input', () => {
+  metroBPM = parseInt(metroSlider.value);
+  metroValueEl.textContent = metroBPM;
+  localStorage.setItem('jumprope_bpm', metroBPM);
+  // Restart metronome if running to apply new BPM
+  if (isRunning && metroEnabled) {
+    startMetronome();
+  }
+});
+
+metroToggle.addEventListener('click', () => {
+  metroEnabled = !metroEnabled;
+  metroToggle.classList.toggle('on', metroEnabled);
+  localStorage.setItem('jumprope_metro_on', metroEnabled);
+  if (metroEnabled && isRunning) {
+    startMetronome();
+  } else {
+    stopMetronome();
+  }
+});
 
 // --- Init ---
 updateDateLabel();
