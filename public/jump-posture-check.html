@@ -635,6 +635,20 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// ── 注册 Service Worker ──
+// 把 MediaPipe 运行时(9.4MB)与姿态模型(5.5MB)显式存进 Cache Storage。
+// HTTP 缓存会被系统在存储紧张或长期不访问时淘汰，表现就是「过一阵又要重新下载」；
+// SW 缓存由我们自己管理，生命周期可控。注册失败也不影响功能，只是退回 HTTP 缓存。
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    // 顺带申请持久化存储，降低被系统回收的概率（部分浏览器不支持，忽略即可）
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+  });
+}
+
 start();
 </script>
 </body>
