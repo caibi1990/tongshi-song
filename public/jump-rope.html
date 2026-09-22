@@ -236,30 +236,41 @@
   }
   .cd-skip:active { background: rgba(255,255,255,.3); transform: scale(.97); }
 
-  /* ══════════ 模型加载提示 ══════════ */
+  /* ══════════ 识别引擎准备提示 ══════════ */
+  /* 默认是底部小胶囊：模型和运行时已长缓存，二次进入只是重新初始化，
+     几百毫秒就绪。原来用全屏遮罩会把取景画面整个盖住，白等一场。 */
   .model-loading {
-    position: absolute; inset: 0; z-index: 4;
-    display: none; flex-direction: column;
-    align-items: center; justify-content: center; gap: 12px;
-    background: rgba(11,13,18,.93);
-    text-align: center; padding: 20px;
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+    z-index: 4; max-width: calc(100% - 32px);
+    display: none; flex-direction: column; align-items: stretch; gap: 10px;
+    padding: 9px 16px; border-radius: 999px;
+    background: rgba(11,13,18,0.84);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    color: #fff; text-align: center;
+    box-shadow: 0 4px 18px rgba(0,0,0,.32);
   }
   .model-loading.show { display: flex; }
+  /* 耗时异常（真在下载）才展开详情 */
+  .model-loading.expand { border-radius: 14px; padding: 14px 18px; }
+  .ml-head { display: flex; align-items: center; justify-content: center; gap: 9px; }
   .ml-spinner {
-    width: 38px; height: 38px; border-radius: 50%;
-    border: 3px solid rgba(255,255,255,.15);
+    width: 15px; height: 15px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,.25);
     border-top-color: var(--primary);
     animation: mlSpin .8s linear infinite;
   }
+  .model-loading.expand .ml-spinner { width: 26px; height: 26px; border-width: 3px; }
   @keyframes mlSpin { to { transform: rotate(360deg); } }
-  .ml-text { font-size: 14px; font-weight: 700; color: var(--text); }
-  .ml-sub { font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .ml-text { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .model-loading.expand .ml-text { white-space: normal; font-size: 14px; }
+  .ml-detail { display: none; flex-direction: column; gap: 8px; }
+  .model-loading.expand .ml-detail { display: flex; }
   .ml-track {
-    width: 70%; max-width: 240px; height: 5px; border-radius: 3px;
-    background: rgba(255,255,255,.12); overflow: hidden;
+    width: 100%; min-width: 210px; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,.15); overflow: hidden;
   }
   .ml-bar {
-    height: 100%; width: 34%; border-radius: 3px;
+    height: 100%; width: 34%; border-radius: 2px;
     background: linear-gradient(90deg, transparent, var(--primary), transparent);
     animation: mlSlide 1.2s ease-in-out infinite;
   }
@@ -267,6 +278,7 @@
     0%   { transform: translateX(-130%); }
     100% { transform: translateX(400%); }
   }
+  .ml-sub { font-size: 11px; color: rgba(255,255,255,.78); line-height: 1.6; }
 
   /* Metronome bar */
   .metronome-bar {
@@ -826,11 +838,11 @@
     .cd-number { font-size: 190px; }
     .cd-label { font-size: 24px; }
     .cd-skip { font-size: 19px; padding: 14px 44px; }
-    .model-loading { gap: 16px; }
-    .ml-spinner { width: 50px; height: 50px; border-width: 4px; }
-    .ml-text { font-size: 18px; }
-    .ml-sub { font-size: 15px; }
-    .ml-track { max-width: 320px; height: 6px; }
+    .model-loading { bottom: 22px; padding: 11px 20px; }
+    .ml-text { font-size: 15px; }
+    .model-loading.expand { padding: 18px 24px; }
+    .ml-track { min-width: 280px; height: 5px; }
+    .ml-sub { font-size: 13px; }
     .metronome-bar { padding: 16px 24px; border-radius: 20px; gap: 14px; }
     .metro-icon { font-size: 24px; }
     .metro-label { font-size: 15px; }
@@ -958,12 +970,17 @@
           <div class="big">📷</div>
           <div id="camPreviewText">正在开启摄像头...</div>
         </div>
-        <!-- 模型加载提示：网络慢时首次约 15MB，需要明确告知 -->
+        <!-- 识别引擎准备提示：默认是小胶囊，不挡取景画面；
+             只有耗时超过阈值（说明真在下载）才展开显示进度与体积说明 -->
         <div class="model-loading" id="modelLoading">
-          <div class="ml-spinner"></div>
-          <div class="ml-text" id="modelLoadingText">正在加载识别模型…</div>
-          <div class="ml-track"><div class="ml-bar"></div></div>
-          <div class="ml-sub" id="modelLoadingSub">首次需下载约 15MB，加载一次后会缓存</div>
+          <div class="ml-head">
+            <div class="ml-spinner"></div>
+            <span class="ml-text" id="modelLoadingText">识别引擎准备中…</span>
+          </div>
+          <div class="ml-detail">
+            <div class="ml-track"><div class="ml-bar"></div></div>
+            <div class="ml-sub" id="modelLoadingSub">首次需下载约 15MB，加载一次后会缓存</div>
+          </div>
         </div>
       </div>
 
@@ -2512,31 +2529,56 @@ function setCamEnabled(on) {
 }
 
 // ── 模型懒加载（只在首次开启摄像头时拉取） ──
-// ── 模型加载提示 ──
-// 首次要拉约 15MB（WASM 运行时 + 模型），弱网下可能等很久，必须让用户看到进展
+// ── 识别引擎准备提示 ──
+// 模型与运行时都带 30 天缓存，二次进入只是重新初始化（WASM 编译 + 建图），
+// 通常几百毫秒就好。所以不再用全屏遮罩盖住取景画面，改为：
+//   · 延迟 350ms 再显示 —— 缓存命中时干脆不闪现
+//   · 超过 2.5s 才展开详情（说明确实在下载），并显示已用时长
 const modelLoading = document.getElementById('modelLoading');
 const modelLoadingText = document.getElementById('modelLoadingText');
 const modelLoadingSub = document.getElementById('modelLoadingSub');
-let modelLoadingTimer = null;
 let modelLoadStartTs = 0;
+let mlShowTimer = null, mlExpandTimer = null, mlTickTimer = null;
+const ML_SHOW_DELAY = 350;
+const ML_EXPAND_DELAY = 2500;
 
 function showModelLoading(show) {
-  if (show) {
-    if (!modelLoadStartTs) modelLoadStartTs = Date.now();
-    modelLoading.classList.add('show');
+  if (!show) {
+    clearTimeout(mlShowTimer); clearTimeout(mlExpandTimer); clearInterval(mlTickTimer);
+    mlShowTimer = mlExpandTimer = mlTickTimer = null;
+    modelLoading.classList.remove('show', 'expand');
+    return;
+  }
+
+  if (!modelLoadStartTs) modelLoadStartTs = Date.now();
+  const elapsed = Date.now() - modelLoadStartTs;
+
+  if (!modelLoading.classList.contains('show')) {
+    clearTimeout(mlShowTimer);
+    if (elapsed >= ML_SHOW_DELAY) {
+      modelLoading.classList.add('show');
+      modelLoadingText.textContent = '识别引擎准备中…';
+    } else {
+      mlShowTimer = setTimeout(() => {
+        modelLoading.classList.add('show');
+        modelLoadingText.textContent = '识别引擎准备中…';
+      }, ML_SHOW_DELAY - elapsed);
+    }
+  }
+
+  clearTimeout(mlExpandTimer);
+  const startExpand = () => {
+    modelLoading.classList.add('show', 'expand');
     const tick = () => {
       const sec = Math.round((Date.now() - modelLoadStartTs) / 1000);
-      modelLoadingSub.textContent =
-        `首次需下载约 15MB，加载一次后会缓存 · 已用时 ${sec}s`;
+      modelLoadingSub.textContent = `首次需下载约 15MB，加载一次后会缓存 · 已用时 ${sec}s`;
     };
     tick();
-    clearInterval(modelLoadingTimer);
-    modelLoadingTimer = setInterval(tick, 1000);
-  } else {
-    clearInterval(modelLoadingTimer);
-    modelLoadingTimer = null;
-    modelLoading.classList.remove('show');
-  }
+    clearInterval(mlTickTimer);
+    mlTickTimer = setInterval(tick, 1000);
+  };
+  if (elapsed >= ML_EXPAND_DELAY) startExpand();
+  else mlExpandTimer = setTimeout(startExpand, ML_EXPAND_DELAY - elapsed);
 }
 
 function ensurePoseModel() {
@@ -2546,8 +2588,6 @@ function ensurePoseModel() {
   poseModelLoading = (async () => {
     try {
       showModelLoading(true);
-      modelLoadingText.textContent = '正在下载识别模型…';
-
       const { PoseLandmarker, FilesetResolver } = await import('/vendor/mediapipe/vision_bundle.mjs');
       const vision = await FilesetResolver.forVisionTasks('/vendor/mediapipe/wasm');
 
