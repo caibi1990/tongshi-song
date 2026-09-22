@@ -24,15 +24,16 @@
     --radius: 16px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
   body {
     font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
-    min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    padding-bottom: env(safe-area-inset-bottom, 0);
     -webkit-text-size-adjust: 100%;
   }
 
@@ -50,7 +51,20 @@
     color: #fff; text-decoration: none; font-size: 14px;
     opacity: 0.85; flex-shrink: 0;
   }
-  .header h1 { font-size: 20px; font-weight: 700; flex: 1; }
+  .header h1 {
+    font-size: 20px; font-weight: 700; flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .header .about-link {
+    color: #fff;
+    font-size: 12px;
+    opacity: 0.75;
+    flex-shrink: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .header .about-link:active { opacity: 1; }
   .header .date-nav {
     display: flex; align-items: center; gap: 8px; flex-shrink: 0;
   }
@@ -81,7 +95,15 @@
   .name-bar .name-status.unset { color: var(--primary); }
 
   /* Main content */
-  .main { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .main {
+    flex: 1;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   #jumpView, #calendarView { display: flex; flex-direction: column; gap: 16px; }
 
   /* Timer card */
@@ -426,6 +448,7 @@
     background: var(--card);
     border-top: 1px solid var(--border);
     display: flex;
+    flex-shrink: 0;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .tab-item {
@@ -482,6 +505,44 @@
   }
   .num-modal .btn-cancel { background: var(--bg); color: var(--muted); }
   .num-modal .btn-confirm { background: var(--primary); color: #fff; }
+
+  /* About */
+  .about-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 300;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .about-overlay.show { display: flex; }
+  .about-box {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 32px 24px;
+    max-width: 380px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    animation: popIn 0.3s;
+  }
+  .about-box .close-btn {
+    position: absolute; top: 12px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #f0f0f0; border: none; font-size: 16px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .about-box h2 { font-size: 20px; margin-bottom: 4px; color: var(--text); }
+  .about-box .ver { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+  .about-box .about-section { margin-bottom: 18px; }
+  .about-box .about-section h3 { font-size: 14px; color: var(--primary); margin-bottom: 6px; }
+  .about-box .about-section p { font-size: 14px; line-height: 1.8; color: #555; }
+  .about-box .about-footer {
+    text-align: center; font-size: 12px; color: var(--muted);
+    padding-top: 16px; border-top: 1px solid #EEE; line-height: 1.6;
+  }
 
   /* Name welcome modal */
   .name-modal-overlay {
@@ -588,6 +649,14 @@
     .name-modal .nm-desc { font-size: 16px; }
     .name-modal select { font-size: 20px; padding: 16px; }
     .name-modal .nm-actions button { font-size: 18px; padding: 16px; }
+    .header .about-link { font-size: 14px; }
+    .about-box { max-width: 560px; padding: 40px 32px; border-radius: 24px; }
+    .about-box .close-btn { width: 34px; height: 34px; font-size: 18px; }
+    .about-box h2 { font-size: 22px; }
+    .about-box .ver { font-size: 14px; }
+    .about-box .about-section h3 { font-size: 17px; }
+    .about-box .about-section p { font-size: 16px; line-height: 2; }
+    .about-box .about-footer { font-size: 14px; }
   }
 
   /* iPad Pro */
@@ -608,6 +677,7 @@
   <a href="/index.html" class="back-link">← 首页</a>
   <h1>🏃 跳绳打卡</h1>
   <span class="date-label" id="dateLabel" style="font-size:14px;opacity:0.9;flex-shrink:0"></span>
+  <span class="about-link" id="aboutLink">关于</span>
 </div>
 
 <!-- Name selector -->
@@ -731,6 +801,45 @@
     <div class="nm-actions">
       <button class="nm-skip" id="nameModalSkip">跳过</button>
       <button class="nm-confirm" id="nameModalConfirm" disabled>确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- About overlay -->
+<div class="about-overlay" id="aboutOverlay">
+  <div class="about-box">
+    <button class="close-btn" id="aboutClose">✕</button>
+    <h2>🏃 跳绳打卡</h2>
+    <div class="ver">v1.0.0</div>
+    <div class="about-section">
+      <h3>这是什么</h3>
+      <p>一个帮助孩子完成每日跳绳任务的小工具。按照体育老师的要求，提供「3分钟」「1分钟」「30秒」三种计时模式，自动记录每次跳绳的个数。</p>
+    </div>
+    <div class="about-section">
+      <h3>怎么用</h3>
+      <p>① 在底部选择要练习的项目（3分钟 / 1分钟 / 30秒）<br>
+      ② 点击「开始」，5 秒倒计时后自动计时<br>
+      ③ 跳到时间结束，输入本次跳绳个数并提交<br>
+      ④ 切换到「日历」可查看历史记录和最佳成绩</p>
+    </div>
+    <div class="about-section">
+      <h3>功能特色</h3>
+      <p>· 三档标准计时：3分钟 / 1分钟 / 30秒<br>
+      · 节拍器：默认 150 次/分，可自由调节，帮助孩子掌握节奏<br>
+      · 语音提醒：剩余 2分钟 / 1分钟 / 30秒 时自动语音播报<br>
+      · 自动同步：选择姓名后，成绩自动写入班级腾讯文档<br>
+      · 历史日历：每天的记录和三项最佳成绩一目了然</p>
+    </div>
+    <div class="about-section">
+      <h3>数据同步说明</h3>
+      <p>首次进入时选择孩子的姓名后，每次提交的跳绳成绩会自动同步到班级的腾讯文档表格，方便体育老师统计。如果还没有选择姓名，成绩只会保存在本机，不会上传。</p>
+    </div>
+    <div class="about-section">
+      <h3>免责声明</h3>
+      <p>本工具为家长自建的家庭学习辅助工具，仅供个人学习使用，不用于商业目的。计时与计数结果仅供参考，请以实际锻炼情况为准。</p>
+    </div>
+    <div class="about-footer">
+      跳绳数据保存在本地浏览器中<br>清除浏览器数据会丢失记录
     </div>
   </div>
 </div>
@@ -1519,6 +1628,19 @@ metroToggle.addEventListener('click', () => {
     startMetronome();
   } else {
     stopMetronome();
+  }
+});
+
+// --- About ---
+document.getElementById('aboutLink').addEventListener('click', () => {
+  document.getElementById('aboutOverlay').classList.add('show');
+});
+document.getElementById('aboutClose').addEventListener('click', () => {
+  document.getElementById('aboutOverlay').classList.remove('show');
+});
+document.getElementById('aboutOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'aboutOverlay') {
+    document.getElementById('aboutOverlay').classList.remove('show');
   }
 });
 
