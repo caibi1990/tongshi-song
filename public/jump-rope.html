@@ -662,16 +662,17 @@
   .timer-card.cam-on .timer-content {
     backdrop-filter: blur(14px) saturate(1.15);
     -webkit-backdrop-filter: blur(14px) saturate(1.15);
-    background: rgba(255,255,255,0.30);
+    background: rgba(255,255,255,0.10);
   }
-  /* 蒙层很透，靠白色描边把深色数字托起来，否则压到暗画面就糊了 */
+  /* 蒙层几乎全透，深色数字完全靠白色描边托住。
+     近距一层保证字形边缘，外扩两层压住暗画面的干扰 */
   .timer-card.cam-on .timer-display {
-    text-shadow: 0 1px 3px rgba(255,255,255,1), 0 2px 16px rgba(255,255,255,0.95),
-                 0 0 34px rgba(255,255,255,0.85);
+    text-shadow: 0 0 3px rgba(255,255,255,1), 0 0 10px rgba(255,255,255,0.95),
+                 0 2px 26px rgba(255,255,255,0.85);
   }
   .timer-card.cam-on .timer-label {
-    color: #4b5563;
-    text-shadow: 0 1px 6px rgba(255,255,255,0.9);
+    color: #374151;
+    text-shadow: 0 0 3px rgba(255,255,255,1), 0 1px 10px rgba(255,255,255,0.9);
   }
   .chip-btn {
     background: var(--bg); border: 1px solid var(--border); color: var(--text);
