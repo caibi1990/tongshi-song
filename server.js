@@ -543,6 +543,15 @@ app.post('/api/qq-doc/write-jump', async (req, res) => {
 });
 
 // --- Static files ---
+// --- 大体积静态资源给长缓存 ---
+// express.static 默认 Cache-Control: max-age=0，意味着每次进页面都要回源校验。
+// MediaPipe 运行时(9.4MB) + 模型(5.5MB) + 语音片段一旦被网关代理丢掉 ETag，
+// 就会退化成整包重下。这里按目录给 30 天缓存，浏览器直接命中本地缓存。
+// 换了模型文件的话，改这里的 maxAge 或给引用加版本号即可清缓存。
+app.use('/vendor', express.static(path.join(__dirname, 'public', 'vendor'), { maxAge: '30d' }));
+app.use('/models', express.static(path.join(__dirname, 'public', 'models'), { maxAge: '30d' }));
+app.use('/audio', express.static(path.join(__dirname, 'public', 'audio'), { maxAge: '30d' }));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Start ---
