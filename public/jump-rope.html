@@ -534,64 +534,75 @@
 </div>
 
 <div class="main">
-  <!-- Calendar -->
-  <div class="calendar-card">
-    <div class="cal-header">
-      <button id="calPrev">‹</button>
-      <span class="cal-title" id="calTitle"></span>
-      <button id="calNext">›</button>
-    </div>
-    <div class="cal-weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
-    <div class="cal-grid" id="calGrid"></div>
-  </div>
-
-  <!-- Best records -->
-  <div class="best-card">
-    <div class="best-title">🏆 历史最佳</div>
-    <div class="best-grid" id="bestGrid"></div>
-  </div>
-
-  <div class="timer-card">
-    <div class="timer-display" id="timerDisplay">03:00</div>
-    <div class="timer-label" id="timerLabel">准备开始</div>
-    <div class="btn-row">
-      <button class="start-btn idle" id="startBtn">▶️ 开始</button>
-      <button class="reset-btn" id="resetBtn" style="display:none">🔄 复位</button>
-    </div>
-    <!-- 5s countdown overlay -->
-    <div class="countdown-overlay" id="countdownOverlay">
-      <div class="countdown-number" id="countdownNum">5</div>
-      <div class="countdown-label">准备好，马上开始！</div>
-      <button class="skip-btn" id="skipCountdown">直接开始 →</button>
-    </div>
-  </div>
-
-  <!-- Metronome control bar -->
-  <div class="metronome-bar">
-    <span class="metro-icon">🥁</span>
-    <span class="metro-label">节拍</span>
-    <input type="range" class="metro-slider" id="metroSlider" min="60" max="240" step="5" value="150">
-    <span class="metro-value" id="metroValue">150</span>
-    <span class="metro-unit">次/分</span>
-    <div class="beat-dot" id="beatDot"></div>
-    <button class="metro-toggle on" id="metroToggle"></button>
-  </div>
-
-  <div class="counter-card" id="counterCard">
-    <div class="counter-row">
-      <button class="counter-btn" id="decBtn">−</button>
-      <div>
-        <span class="counter-value" id="countValue">0</span>
-        <span class="counter-unit">个</span>
+  <!-- === Jump View (timer + metronome + counter + history) === -->
+  <div id="jumpView">
+    <div class="timer-card">
+      <div class="timer-display" id="timerDisplay">03:00</div>
+      <div class="timer-label" id="timerLabel">准备开始</div>
+      <div class="btn-row">
+        <button class="start-btn idle" id="startBtn">▶️ 开始</button>
+        <button class="reset-btn" id="resetBtn" style="display:none">🔄 复位</button>
       </div>
-      <button class="counter-btn" id="incBtn">+</button>
+      <!-- 5s countdown overlay -->
+      <div class="countdown-overlay" id="countdownOverlay">
+        <div class="countdown-number" id="countdownNum">5</div>
+        <div class="countdown-label">准备好，马上开始！</div>
+        <button class="skip-btn" id="skipCountdown">直接开始 →</button>
+      </div>
     </div>
-    <button class="submit-btn" id="submitBtn">✅ 提交记录</button>
+
+    <!-- Metronome control bar -->
+    <div class="metronome-bar">
+      <span class="metro-icon">🥁</span>
+      <span class="metro-label">节拍</span>
+      <input type="range" class="metro-slider" id="metroSlider" min="60" max="240" step="5" value="150">
+      <span class="metro-value" id="metroValue">150</span>
+      <span class="metro-unit">次/分</span>
+      <div class="beat-dot" id="beatDot"></div>
+      <button class="metro-toggle on" id="metroToggle"></button>
+    </div>
+
+    <div class="counter-card" id="counterCard">
+      <div class="counter-row">
+        <button class="counter-btn" id="decBtn">−</button>
+        <div>
+          <span class="counter-value" id="countValue">0</span>
+          <span class="counter-unit">个</span>
+        </div>
+        <button class="counter-btn" id="incBtn">+</button>
+      </div>
+      <button class="submit-btn" id="submitBtn">✅ 提交记录</button>
+    </div>
+
+    <div class="history-card">
+      <div class="history-title">📋 当日记录</div>
+      <div id="historyList"></div>
+    </div>
   </div>
 
-  <div class="history-card">
-    <div class="history-title">📋 今日记录</div>
-    <div id="historyList"></div>
+  <!-- === Calendar View === -->
+  <div id="calendarView" style="display:none">
+    <div class="calendar-card">
+      <div class="cal-header">
+        <button id="calPrev">‹</button>
+        <span class="cal-title" id="calTitle"></span>
+        <button id="calNext">›</button>
+      </div>
+      <div class="cal-weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <!-- Best records -->
+    <div class="best-card">
+      <div class="best-title">🏆 历史最佳</div>
+      <div class="best-grid" id="bestGrid"></div>
+    </div>
+
+    <!-- Selected day records in calendar view -->
+    <div class="history-card">
+      <div class="history-title" id="calHistoryTitle">📋 当天记录</div>
+      <div id="calHistoryList"></div>
+    </div>
   </div>
 </div>
 
@@ -607,6 +618,10 @@
   <button class="tab-item" data-task="30">
     <span class="tab-icon">⚡</span>
     <span class="tab-label">30秒</span>
+  </button>
+  <button class="tab-item" data-view="calendar">
+    <span class="tab-icon">📅</span>
+    <span class="tab-label">日历</span>
   </button>
 </div>
 
@@ -1002,6 +1017,7 @@ document.getElementById('submitBtn').addEventListener('click', () => {
   renderHistory();
   renderCalendar();
   renderBestRecords();
+  if (activeView === 'calendar') renderCalHistory();
   playBeep(523, 0.2); // C5 confirm
   speakAlert(`记录成功，${jumpCount}个`);
 
@@ -1039,13 +1055,88 @@ function renderHistory() {
       renderHistory();
       renderCalendar();
       renderBestRecords();
+      if (activeView === 'calendar') renderCalHistory();
     });
   });
+}
+
+// --- View Switching ---
+let activeView = 'jump'; // 'jump' or 'calendar'
+
+function switchView(view) {
+  activeView = view;
+  const jumpView = document.getElementById('jumpView');
+  const calendarView = document.getElementById('calendarView');
+  const dateLabel = document.getElementById('dateLabel');
+
+  if (view === 'calendar') {
+    jumpView.style.display = 'none';
+    calendarView.style.display = '';
+    dateLabel.style.display = 'none';
+    renderCalendar();
+    renderBestRecords();
+    renderCalHistory();
+  } else {
+    jumpView.style.display = '';
+    calendarView.style.display = 'none';
+    dateLabel.style.display = '';
+    renderHistory();
+  }
+}
+
+// Render history for selected date in calendar view (all tasks combined)
+function renderCalHistory() {
+  const container = document.getElementById('calHistoryList');
+  const titleEl = document.getElementById('calHistoryTitle');
+  titleEl.textContent = `📋 ${formatDateCN(currentDate)} 记录`;
+
+  const icons = { 180: '⏱️', 60: '🏃', 30: '⚡' };
+  const labels = { 180: '3分钟', 60: '1分钟', 30: '30秒' };
+  let allItems = [];
+
+  for (const task of TASKS_KEYS) {
+    const records = loadRecords(task, currentDate);
+    for (const r of records) {
+      allItems.push({ ...r, task, icon: icons[task], label: labels[task] });
+    }
+  }
+
+  // Sort by timestamp desc
+  allItems.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+  if (!allItems.length) {
+    container.innerHTML = '<div class="history-empty">这天还没有跳绳记录 🏃</div>';
+    return;
+  }
+
+  container.innerHTML = allItems.map((r, i) => `
+    <div class="history-item">
+      <div class="hi-left">
+        <span class="hi-index" style="background:${r.task===180?'var(--primary-light)':r.task===60?'var(--blue-light)':'var(--purple-light)'};color:${r.task===180?'var(--primary)':r.task===60?'var(--blue)':'var(--purple)'}">${r.icon}</span>
+        <span class="hi-count">${r.count}</span>
+        <span class="hi-unit">个 · ${r.label}</span>
+      </div>
+      <span class="hi-time">${r.time}</span>
+    </div>
+  `).join('');
 }
 
 // --- Tabs ---
 document.querySelectorAll('.tab-item').forEach(tab => {
   tab.addEventListener('click', () => {
+    // Calendar tab
+    if (tab.dataset.view === 'calendar') {
+      if (isRunning || isCountingDown) {
+        speakAlert('请先停止计时再切换');
+        return;
+      }
+      document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      switchView('calendar');
+      return;
+    }
+
+    // Jump tabs
     if (isRunning || isCountingDown) {
       speakAlert('请先停止计时再切换');
       return;
@@ -1053,6 +1144,7 @@ document.querySelectorAll('.tab-item').forEach(tab => {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     currentTask = parseInt(tab.dataset.task);
+    switchView('jump');
     resetTimer();
     renderHistory();
   });
@@ -1104,7 +1196,7 @@ function renderCalendar() {
       currentDate = date;
       updateDateLabel();
       renderCalendar();
-      renderHistory();
+      renderCalHistory();
     });
   });
 }
