@@ -649,9 +649,8 @@
   .cam-bg.live .cam-preview-msg { display: none; }
   .cam-preview-msg .big { font-size: 32px; }
 
-  /* 计时内容层：摄像头开启时变成磨砂玻璃。
-     内边距放在这一层（卡片本身 padding: 0），蒙层才能铺满整张卡，
-     否则会被卡片的内边距裁出一圈没模糊的边。 */
+  /* 计时内容层：内边距放在这一层（卡片本身 padding: 0），
+     这样内容层能铺满整张卡 —— 加蒙层时不会被卡片内边距裁出一圈边。 */
   .timer-content {
     position: relative; z-index: 2; width: 100%;
     padding: 44px 24px;
@@ -660,19 +659,23 @@
     gap: 22px; flex: 1;
   }
   .timer-card.cam-on .timer-content {
-    backdrop-filter: blur(14px) saturate(1.15);
-    -webkit-backdrop-filter: blur(14px) saturate(1.15);
-    background: rgba(255,255,255,0.10);
+    /* 最透：不做任何蒙层处理，画面原样透出。
+       想恢复磨砂感就把这两行加回来：
+         backdrop-filter: blur(14px) saturate(1.15);
+         background: rgba(255,255,255,0.10); */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: transparent;
   }
-  /* 蒙层几乎全透，深色数字完全靠白色描边托住。
-     近距一层保证字形边缘，外扩两层压住暗画面的干扰 */
+  /* 没有任何蒙层，深色数字完全靠白色描边撑起可读性：
+     近距保字形边缘，中距压画面干扰，外圈做柔光过渡 */
   .timer-card.cam-on .timer-display {
-    text-shadow: 0 0 3px rgba(255,255,255,1), 0 0 10px rgba(255,255,255,0.95),
-                 0 2px 26px rgba(255,255,255,0.85);
+    text-shadow: 0 0 4px rgba(255,255,255,1), 0 0 13px rgba(255,255,255,1),
+                 0 2px 30px rgba(255,255,255,0.9);
   }
   .timer-card.cam-on .timer-label {
     color: #374151;
-    text-shadow: 0 0 3px rgba(255,255,255,1), 0 1px 10px rgba(255,255,255,0.9);
+    text-shadow: 0 0 4px rgba(255,255,255,1), 0 1px 12px rgba(255,255,255,0.95);
   }
   .chip-btn {
     background: var(--bg); border: 1px solid var(--border); color: var(--text);
