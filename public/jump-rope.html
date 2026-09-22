@@ -175,33 +175,91 @@
   }
   .reset-btn:active { color: var(--primary); background: var(--primary-light); }
 
-  /* Countdown overlay (5s prep) */
-  .countdown-overlay {
-    position: absolute; inset: 0;
-    background: rgba(255,255,255,0.95);
-    border-radius: var(--radius);
+  /* ══════════ 全屏倒计时（玻璃蒙层） ══════════ */
+  /* 摄像头模式：叠在全屏舞台之上，背景就是摄像头实时画面
+     手动模式：加 .manual 用深色渐变打底，避免透出下方卡片显得杂乱 */
+  .countdown-screen {
+    position: fixed; inset: 0; z-index: 410;
     display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    z-index: 10;
   }
-  .countdown-overlay.show { display: flex; }
-  .countdown-number {
-    font-size: 96px; font-weight: 900; color: var(--primary);
-    line-height: 1; animation: countPop 0.8s ease-out;
+  .countdown-screen.show { display: block; }
+  .countdown-screen.manual {
+    background: linear-gradient(160deg, #242a3a 0%, #12141c 100%);
   }
-  @keyframes countPop { from { transform: scale(1.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  .countdown-label { font-size: 18px; color: var(--muted); font-weight: 600; }
-  .skip-btn {
-    margin-top: 8px;
-    background: none; border: 2px solid var(--border);
-    border-radius: 24px; padding: 10px 28px;
-    font-size: 15px; font-weight: 600; color: var(--muted);
-    cursor: pointer; transition: all 0.2s;
+  .countdown-glass {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px;
+    /* 玻璃模糊：模糊背景但必须保证文字可读，
+       所以叠一层透明度不高的暗色（0.58 比常见的玻璃拟态更实） */
+    backdrop-filter: blur(18px) saturate(1.15);
+    -webkit-backdrop-filter: blur(18px) saturate(1.15);
+    background: rgba(12,14,20,0.58);
   }
-  .skip-btn:active { border-color: var(--primary); color: var(--primary); }
+  .countdown-screen.manual .countdown-glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: transparent;
+  }
+  .cd-number {
+    font-size: 132px; font-weight: 900; line-height: 1;
+    color: #fff;
+    text-shadow: 0 4px 24px rgba(0,0,0,.65), 0 0 64px rgba(255,107,53,.45);
+    font-variant-numeric: tabular-nums;
+    animation: cdPop .7s ease-out;
+  }
+  @keyframes cdPop {
+    0%   { transform: scale(1.55); opacity: .15; }
+    55%  { transform: scale(.96);  opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+  .cd-label {
+    font-size: 19px; font-weight: 600; color: rgba(255,255,255,.92);
+    letter-spacing: 1px;
+    text-shadow: 0 2px 12px rgba(0,0,0,.6);
+  }
+  .cd-skip {
+    margin-top: 10px;
+    background: rgba(255,255,255,.14);
+    border: 2px solid rgba(255,255,255,.35);
+    border-radius: 999px; padding: 12px 34px;
+    font-size: 16px; font-weight: 700; color: #fff;
+    cursor: pointer; font-family: inherit;
+    transition: all .2s;
+  }
+  .cd-skip:active { background: rgba(255,255,255,.3); transform: scale(.97); }
+
+  /* ══════════ 模型加载提示 ══════════ */
+  .model-loading {
+    position: absolute; inset: 0; z-index: 4;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+    background: rgba(11,13,18,.93);
+    text-align: center; padding: 20px;
+  }
+  .model-loading.show { display: flex; }
+  .ml-spinner {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.15);
+    border-top-color: var(--primary);
+    animation: mlSpin .8s linear infinite;
+  }
+  @keyframes mlSpin { to { transform: rotate(360deg); } }
+  .ml-text { font-size: 14px; font-weight: 700; color: var(--text); }
+  .ml-sub { font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .ml-track {
+    width: 70%; max-width: 240px; height: 5px; border-radius: 3px;
+    background: rgba(255,255,255,.12); overflow: hidden;
+  }
+  .ml-bar {
+    height: 100%; width: 34%; border-radius: 3px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    animation: mlSlide 1.2s ease-in-out infinite;
+  }
+  @keyframes mlSlide {
+    0%   { transform: translateX(-130%); }
+    100% { transform: translateX(400%); }
+  }
 
   /* Metronome bar */
   .metronome-bar {
@@ -652,8 +710,8 @@
     font-size: 18px; font-weight: 700; color: #FFD400; opacity: .9;
     text-shadow: 0 2px 8px rgba(0,0,0,.85);
   }
-  .stage-count.pop { animation: countPop .28s ease-out; }
-  @keyframes countPop {
+  .stage-count.pop { animation: stageCountPop .28s ease-out; }
+  @keyframes stageCountPop {
     0% { transform: translateX(-50%) scale(1); }
     45% { transform: translateX(-50%) scale(1.16); }
     100% { transform: translateX(-50%) scale(1); }
@@ -727,9 +785,14 @@
     #jumpView, #calendarView { gap: 20px; }
     .btn-col { gap: 14px; }
     .reset-btn { font-size: 15px; padding: 8px 24px; }
-    .countdown-number { font-size: 120px; }
-    .countdown-label { font-size: 22px; }
-    .skip-btn { font-size: 17px; padding: 12px 32px; }
+    .cd-number { font-size: 190px; }
+    .cd-label { font-size: 24px; }
+    .cd-skip { font-size: 19px; padding: 14px 44px; }
+    .model-loading { gap: 16px; }
+    .ml-spinner { width: 50px; height: 50px; border-width: 4px; }
+    .ml-text { font-size: 18px; }
+    .ml-sub { font-size: 15px; }
+    .ml-track { max-width: 320px; height: 6px; }
     .metronome-bar { padding: 16px 24px; border-radius: 20px; gap: 14px; }
     .metro-icon { font-size: 24px; }
     .metro-label { font-size: 15px; }
@@ -849,6 +912,13 @@
           <div class="big">📷</div>
           <div id="camPreviewText">正在开启摄像头...</div>
         </div>
+        <!-- 模型加载提示：网络慢时首次约 15MB，需要明确告知 -->
+        <div class="model-loading" id="modelLoading">
+          <div class="ml-spinner"></div>
+          <div class="ml-text" id="modelLoadingText">正在加载识别模型…</div>
+          <div class="ml-track"><div class="ml-bar"></div></div>
+          <div class="ml-sub" id="modelLoadingSub">首次需下载约 15MB，加载一次后会缓存</div>
+        </div>
       </div>
       <div class="cam-preview-bar">
         <span class="cp-state" id="camPreviewState">—</span>
@@ -863,12 +933,6 @@
       <div class="btn-col">
         <button class="start-btn idle" id="startBtn">▶️ 开始</button>
         <button class="reset-btn" id="resetBtn" style="display:none">复位</button>
-      </div>
-      <!-- 5s countdown overlay -->
-      <div class="countdown-overlay" id="countdownOverlay">
-        <div class="countdown-number" id="countdownNum">5</div>
-        <div class="countdown-label">准备好，马上开始！</div>
-        <button class="skip-btn" id="skipCountdown">直接开始 →</button>
       </div>
     </div>
 
@@ -947,6 +1011,16 @@
       <canvas id="stageCanvas"></canvas>
     </div>
     <div class="stage-timer" id="stageTimer">剩余 --:--</div>
+  </div>
+</div>
+
+<!-- ══════════ 全屏倒计时蒙层 ══════════ -->
+<!-- 摄像头模式下叠在舞台之上，背景即摄像头实时画面；手动模式下用 .manual 深色打底 -->
+<div class="countdown-screen" id="countdownScreen">
+  <div class="countdown-glass" id="countdownGlass">
+    <div class="cd-number" id="countdownNum">5</div>
+    <div class="cd-label">准备好，马上开始！</div>
+    <button class="cd-skip" id="skipCountdown">直接开始 →</button>
   </div>
 </div>
 
@@ -1241,17 +1315,36 @@ function stopMetronome() {
 }
 
 // --- Countdown (5s prep) ---
-const countdownOverlay = document.getElementById('countdownOverlay');
+// 摄像头模式下先把舞台展开成全屏（摄像头打底），倒计时作为其上的玻璃蒙层；
+// 倒计时结束蒙层揭开就是运行中的舞台 —— 只切换一次视频源，无黑屏闪烁。
+const countdownScreen = document.getElementById('countdownScreen');
+const countdownGlass = document.getElementById('countdownGlass');
 const countdownNum = document.getElementById('countdownNum');
+let stagePrepared = false;   // 舞台是否已由倒计时阶段提前展开
 
 function startCountdownThenStart() {
   if (isCountingDown) return;
   isCountingDown = true;
   camSwitch.disabled = true;
+
+  const withCam = camEnabled && camReady;
+  camCountingThisRun = withCam;
+
+  if (withCam) {
+    camResetCounting();
+    countdownScreen.classList.remove('manual');
+    enterStage();              // 先展开成全屏，摄像头作为蒙层背景
+    stagePrepared = true;
+  } else {
+    countdownScreen.classList.add('manual');
+    stagePrepared = false;
+  }
+
   let count = 5;
   countdownNum.textContent = count;
-  countdownOverlay.classList.add('show');
+  countdownScreen.classList.add('show');
   getAudioCtx().resume().catch(()=>{});
+  reviveAudio();               // 刚取流可能抢走了音频会话
   speakCountdown(CN_NUM[count], true);   // 先清掉残留语音，再读「五」
   playBeep(440, 0.15);
 
@@ -1259,31 +1352,30 @@ function startCountdownThenStart() {
     count--;
     if (count > 0) {
       countdownNum.textContent = count;
-      // Re-trigger animation
+      // 重启动画
       countdownNum.style.animation = 'none';
       void countdownNum.offsetWidth;
-      countdownNum.style.animation = 'countPop 0.8s ease-out';
+      countdownNum.style.animation = 'cdPop .7s ease-out';
       speakCountdown(CN_NUM[count]);
       playBeep(440, 0.15);
     } else {
-      clearInterval(countdownInterval);
-      countdownInterval = null;
-      isCountingDown = false;
-      countdownOverlay.classList.remove('show');
-      playBeep(880, 0.3);
-      speakCountdown('开始');
-      actuallyStartTimer();
+      finishCountdown();
     }
   }, 1000);
 }
 
-function skipCountdown() {
+function finishCountdown() {
+  if (!isCountingDown) return;
   clearInterval(countdownInterval);
   countdownInterval = null;
   isCountingDown = false;
-  countdownOverlay.classList.remove('show');
+  countdownScreen.classList.remove('show');
+  playBeep(880, 0.3);
+  speakCountdown('开始');
   actuallyStartTimer();
 }
+
+function skipCountdown() { finishCountdown(); }
 
 document.getElementById('skipCountdown').addEventListener('click', skipCountdown);
 
@@ -1296,13 +1388,13 @@ const resetBtn = document.getElementById('resetBtn');
 function resetTimer() {
   stopTimer();
   stopMetronome();
-  // Cancel any pending countdown
+  // 取消进行中的倒计时
   if (isCountingDown) {
     clearInterval(countdownInterval);
     countdownInterval = null;
     isCountingDown = false;
-    countdownOverlay.classList.remove('show');
   }
+  countdownScreen.classList.remove('show');
   remainingSeconds = currentTask;
   timerDisplay.textContent = formatTime(remainingSeconds);
   timerDisplay.className = 'timer-display';
@@ -1314,6 +1406,7 @@ function resetTimer() {
   // 摄像头计数复位
   camResetCounting();
   camCountingThisRun = false;
+  stagePrepared = false;
   stopDetecting();
   if (camStage.classList.contains('show')) exitStage();
   camSwitch.disabled = false;
@@ -1331,15 +1424,21 @@ function actuallyStartTimer(isResume = false) {
   getAudioCtx().resume().catch(()=>{});
   startMetronome();
 
-  // 摄像头模式：进入全屏舞台并开始识别
+  // 摄像头模式：舞台通常已由倒计时阶段提前展开，这里只负责开始识别
   if (camEnabled && camReady) {
     camCountingThisRun = true;
-    // 续跳时保留已计数量，只清空信号窗口避免用到暂停前的数据
-    if (isResume) camResetSignal(); else camResetCounting();
-    enterStage();
+    if (isResume) {
+      camResetSignal();                 // 续跳保留已计数量，只清信号窗口
+      if (!camStage.classList.contains('show')) enterStage();
+    } else if (!stagePrepared) {
+      camResetCounting();
+      enterStage();
+    }
+    stagePrepared = false;
     startDetecting(stageVideo);
   } else {
     camCountingThisRun = false;
+    stagePrepared = false;
   }
 
   const taskConfig = TASKS[currentTask];
@@ -1381,6 +1480,7 @@ function stopTimer() {
   timerDisplay.classList.remove('running');
   // 暂停时停止识别并退出舞台（摄像头保持开启）
   stopDetecting();
+  countdownScreen.classList.remove('show');
   if (camStage.classList.contains('show')) exitStage();
   camSwitch.disabled = false;
   if (remainingSeconds > 0) {
@@ -2153,7 +2253,11 @@ async function startCameraFlow() {
   try {
     await openCamStream(null);
     await enumerateCamDevices();
-    ensurePoseModel();          // 后台预热模型，不阻塞取景
+    // 后台预热模型，不阻塞取景；若上次还没加载完则重新显示进度
+    if (!poseModelReady) {
+      if (poseModelLoading) showModelLoading(true);
+      else ensurePoseModel();
+    }
   } catch (e) {
     const hint = {
       NotAllowedError: '摄像头权限被拒绝\n请在浏览器设置里允许后点「重试」',
@@ -2191,6 +2295,7 @@ async function switchCam() {
 function closeCamera() {
   stopDetecting();
   camStage.classList.remove('show');
+  countdownScreen.classList.remove('show');
   if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
   camVideo.srcObject = null;
   stageVideo.srcObject = null;
@@ -2214,15 +2319,47 @@ function setCamEnabled(on) {
 }
 
 // ── 模型懒加载（只在首次开启摄像头时拉取） ──
+// ── 模型加载提示 ──
+// 首次要拉约 15MB（WASM 运行时 + 模型），弱网下可能等很久，必须让用户看到进展
+const modelLoading = document.getElementById('modelLoading');
+const modelLoadingText = document.getElementById('modelLoadingText');
+const modelLoadingSub = document.getElementById('modelLoadingSub');
+let modelLoadingTimer = null;
+let modelLoadStartTs = 0;
+
+function showModelLoading(show) {
+  if (show) {
+    if (!modelLoadStartTs) modelLoadStartTs = Date.now();
+    modelLoading.classList.add('show');
+    const tick = () => {
+      const sec = Math.round((Date.now() - modelLoadStartTs) / 1000);
+      modelLoadingSub.textContent =
+        `首次需下载约 15MB，加载一次后会缓存 · 已用时 ${sec}s`;
+    };
+    tick();
+    clearInterval(modelLoadingTimer);
+    modelLoadingTimer = setInterval(tick, 1000);
+  } else {
+    clearInterval(modelLoadingTimer);
+    modelLoadingTimer = null;
+    modelLoading.classList.remove('show');
+  }
+}
+
 function ensurePoseModel() {
   if (poseModelReady) return Promise.resolve(true);
   if (poseModelLoading) return poseModelLoading;
 
   poseModelLoading = (async () => {
     try {
-      camPreviewState.textContent = '正在加载识别模型…';
+      showModelLoading(true);
+      modelLoadingText.textContent = '正在下载识别模型…';
+
       const { PoseLandmarker, FilesetResolver } = await import('/vendor/mediapipe/vision_bundle.mjs');
       const vision = await FilesetResolver.forVisionTasks('/vendor/mediapipe/wasm');
+
+      modelLoadingText.textContent = '正在初始化识别引擎…';
+
       for (const delegate of ['GPU', 'CPU']) {
         try {
           poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
@@ -2234,6 +2371,8 @@ function ensurePoseModel() {
             minTrackingConfidence: 0.5,
           });
           poseModelReady = true;
+          modelLoadStartTs = 0;
+          showModelLoading(false);
           if (camStream) {
             const vw = camVideo.videoWidth, vh = camVideo.videoHeight;
             if (vw && vh) {
@@ -2248,6 +2387,8 @@ function ensurePoseModel() {
     } catch (e) {
       console.warn('姿态模型加载失败:', e);
       poseModelLoading = null;
+      modelLoadStartTs = 0;
+      showModelLoading(false);
       camPreviewState.textContent = '识别模型加载失败';
       return false;
     }
