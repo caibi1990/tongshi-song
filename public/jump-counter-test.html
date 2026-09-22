@@ -16,6 +16,7 @@
     --green: #22c55e;
     --red: #ef4444;
     --yellow: #eab308;
+    --blue: #3b82f6;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; overflow: hidden; }
@@ -26,8 +27,8 @@
   }
   .header {
     background: linear-gradient(135deg, #ff6b35, #ff9a5c);
-    color: #fff; padding: 16px;
-    padding-top: max(16px, env(safe-area-inset-top, 16px));
+    color: #fff; padding: 14px 16px;
+    padding-top: max(14px, env(safe-area-inset-top, 14px));
     display: flex; align-items: center; gap: 12px; flex-shrink: 0;
   }
   .header a { color: #fff; text-decoration: none; font-size: 14px; opacity: .85; }
@@ -47,17 +48,13 @@
   }
   .card h2 { font-size: 13px; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
 
-  /* status list */
   .status-row {
     display: flex; align-items: center; gap: 8px;
     padding: 7px 0; font-size: 13px;
     border-bottom: 1px solid var(--border);
   }
   .status-row:last-child { border-bottom: none; }
-  .status-row .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--muted); flex-shrink: 0;
-  }
+  .status-row .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
   .status-row .dot.ok { background: var(--green); }
   .status-row .dot.err { background: var(--red); }
   .status-row .dot.warn { background: var(--yellow); }
@@ -69,22 +66,75 @@
   .status-row .value.err { color: var(--red); }
   .status-row .value.warn { color: var(--yellow); }
 
-  /* video */
+  /* ── 实时画面 ── */
   .video-wrap {
     position: relative; background: #000; border-radius: 12px;
-    overflow: hidden; aspect-ratio: 3/4; max-height: 52vh; margin: 0 auto; width: 100%;
+    overflow: hidden; width: 100%; margin: 0 auto;
+    aspect-ratio: 3 / 4;          /* 摄像头就绪后按实际分辨率动态覆盖 */
+    max-height: 58vh;
   }
   .video-wrap video { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .video-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .video-wrap canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  /* 前置镜头镜像：video 与 canvas 同时翻转，保证骨架与画面始终对齐 */
+  .video-wrap.mirrored video,
+  .video-wrap.mirrored canvas { transform: scaleX(-1); }
+
   .video-hint {
     position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 8px;
+    align-items: center; justify-content: center; gap: 10px;
     color: var(--muted); font-size: 13px; text-align: center; padding: 20px;
+    background: #0b0d12;
   }
-  .video-hint .big { font-size: 36px; }
+  .video-hint .big { font-size: 40px; }
   .video-wrap.live .video-hint { display: none; }
 
-  /* counter */
+  /* 画面上角实时标签 */
+  .live-badge {
+    position: absolute; top: 8px; left: 8px; z-index: 3;
+    display: none; align-items: center; gap: 6px;
+    background: rgba(0,0,0,.6); backdrop-filter: blur(6px);
+    padding: 5px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; color: #fff;
+  }
+  .video-wrap.live .live-badge { display: flex; }
+  .live-badge .rec {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--red);
+  }
+  .live-badge.on .rec { animation: blink 1.2s infinite; }
+  .live-badge .cam-name { color: #fff; opacity: .9; }
+
+  .res-badge {
+    position: absolute; bottom: 8px; right: 8px; z-index: 3;
+    display: none; background: rgba(0,0,0,.6); backdrop-filter: blur(6px);
+    padding: 4px 8px; border-radius: 6px;
+    font-size: 10px; color: #fff; opacity: .85;
+    font-variant-numeric: tabular-nums;
+  }
+  .video-wrap.live .res-badge { display: block; }
+
+  /* 镜头控制条 */
+  .cam-bar {
+    display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  }
+  .cam-bar .cam-state {
+    flex: 1; font-size: 12px; color: var(--muted);
+  }
+  .cam-bar .cam-state b { color: var(--text); }
+  .icon-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); border-radius: 10px;
+    padding: 9px 14px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all .2s;
+  }
+  .icon-btn:active { background: #23273a; transform: scale(.97); }
+  .icon-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .icon-btn .ico { font-size: 15px; }
+
+  /* 计数 */
   .counter-row { display: flex; align-items: center; gap: 12px; }
   .counter-big {
     font-size: 56px; font-weight: 800; color: var(--primary);
@@ -93,59 +143,47 @@
   .counter-info { flex: 1; font-size: 12px; color: var(--muted); line-height: 1.7; }
   .counter-info b { color: var(--text); font-size: 14px; }
 
-  /* signal bar */
+  /* 信号条 */
   .signal-track {
     position: relative; height: 34px; background: #0b0d12;
     border-radius: 8px; overflow: hidden; border: 1px solid var(--border);
   }
   .signal-fill {
     position: absolute; left: 50%; width: 3px; background: var(--primary);
-    transform: translateX(-50%); border-radius: 2px; transition: none;
+    transform: translate(-50%, -50%); border-radius: 2px;
   }
-  .signal-mid {
-    position: absolute; left: 0; right: 0; top: 50%; height: 1px;
-    background: rgba(255,255,255,.15);
-  }
-  .signal-mark {
-    position: absolute; left: 0; right: 0; height: 1px;
-    background: rgba(34,197,94,.5);
-  }
-  .signal-scale {
-    display: flex; justify-content: space-between;
-    font-size: 10px; color: var(--muted); margin-top: 4px;
-  }
+  .signal-mid { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(255,255,255,.15); }
+  .signal-mark { position: absolute; left: 0; right: 0; height: 1px; background: rgba(34,197,94,.5); display: none; }
+  .signal-scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 4px; }
 
-  /* metric grid */
+  /* 指标 */
   .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .metric {
-    background: #0b0d12; border-radius: 10px; padding: 10px 8px; text-align: center;
-  }
+  .metric { background: #0b0d12; border-radius: 10px; padding: 10px 8px; text-align: center; }
   .metric .m-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
-  .metric .m-value {
-    font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums;
-  }
+  .metric .m-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .metric .m-value.ok { color: var(--green); }
   .metric .m-value.warn { color: var(--yellow); }
   .metric .m-value.err { color: var(--red); }
 
-  /* buttons */
+  /* 按钮 */
   .btns { display: flex; gap: 10px; }
-  button {
-    border: none; border-radius: 12px; padding: 13px 20px;
+  button { font-family: inherit; }
+  .btn {
+    border: none; border-radius: 12px; padding: 14px 20px;
     font-size: 15px; font-weight: 700; cursor: pointer;
-    transition: all .2s; font-family: inherit;
+    transition: all .2s; flex: 1;
   }
-  button:active { transform: scale(.97); }
-  button:disabled { opacity: .4; cursor: not-allowed; }
-  .btn-primary { background: var(--primary); color: #fff; flex: 1; }
-  .btn-stop { background: var(--red); color: #fff; flex: 1; }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-stop { background: var(--red); color: #fff; }
   .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
 
-  /* log */
   .log {
     background: #0b0d12; border-radius: 10px; padding: 10px;
     font-family: 'SF Mono', Menlo, monospace; font-size: 11px;
-    line-height: 1.7; max-height: 160px; overflow-y: auto; color: var(--muted);
+    line-height: 1.7; max-height: 150px; overflow-y: auto; color: var(--muted);
     white-space: pre-wrap; word-break: break-word;
   }
   .log .t { color: #6366f1; }
@@ -158,16 +196,18 @@
     background: rgba(255,107,53,.08); border-left: 3px solid var(--primary);
     padding: 10px 12px; border-radius: 0 8px 8px 0;
   }
+  .note.blue { background: rgba(59,130,246,.08); border-left-color: var(--blue); }
 
   @media (min-width: 768px) {
-    .main { padding: 20px; max-width: 720px; margin: 0 auto; width: 100%; gap: 16px; }
+    .main { padding: 20px; max-width: 760px; margin: 0 auto; width: 100%; gap: 16px; }
     .header { padding: 20px 32px; }
     .header h1 { font-size: 22px; }
     .card { padding: 18px; border-radius: 18px; }
     .counter-big { font-size: 72px; min-width: 150px; }
     .metric .m-value { font-size: 22px; }
-    .video-wrap { max-height: 58vh; }
-    button { font-size: 17px; padding: 15px 24px; }
+    .video-wrap { max-height: 62vh; }
+    .btn { font-size: 17px; padding: 16px 24px; }
+    .icon-btn { font-size: 15px; padding: 11px 18px; }
   }
 </style>
 </head>
@@ -182,8 +222,42 @@
 <div class="main">
 
   <div class="note">
-    <b>这是一个独立测试页</b>，用来验证「摄像头自动计数跳绳」是否可行，不影响跳绳打卡功能。
-    请把设备架好、让全身进入画面，然后点开始。测试完把下面的帧率和误差记下来。
+    <b>独立测试页</b>，不影响跳绳打卡功能。先点「开启摄像头」确认取景，再点「开始识别」。
+    测试完请记录帧率和识别误差。
+  </div>
+
+  <!-- 实时画面 -->
+  <div>
+    <div class="video-wrap" id="videoWrap">
+      <video id="video" playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+      <div class="live-badge" id="liveBadge">
+        <span class="rec"></span>
+        <span class="cam-name" id="badgeCam">摄像头</span>
+        <span id="badgeState"></span>
+      </div>
+      <div class="res-badge" id="resBadge"></div>
+      <div class="video-hint" id="videoHint">
+        <div class="big">📷</div>
+        <div id="hintText">点击下方「开启摄像头」</div>
+      </div>
+    </div>
+    <div class="cam-bar">
+      <div class="cam-state" id="camState">摄像头：未开启</div>
+      <button class="icon-btn" id="switchBtn" disabled>
+        <span class="ico">🔄</span>切换镜头
+      </button>
+      <button class="icon-btn" id="closeCamBtn" disabled>
+        <span class="ico">✕</span>关闭
+      </button>
+    </div>
+  </div>
+
+  <!-- 主控制 -->
+  <div class="btns">
+    <button class="btn btn-primary" id="camBtn">📷 开启摄像头</button>
+    <button class="btn btn-green" id="startBtn" style="display:none">▶ 开始识别</button>
+    <button class="btn btn-stop" id="stopBtn" style="display:none">⏹ 停止识别</button>
   </div>
 
   <!-- 检查项 -->
@@ -216,16 +290,6 @@
     </div>
   </div>
 
-  <!-- 视频 -->
-  <div class="video-wrap" id="videoWrap">
-    <video id="video" playsinline muted></video>
-    <canvas id="overlay"></canvas>
-    <div class="video-hint" id="videoHint">
-      <div class="big">📷</div>
-      <div id="hintText">点击下方「开始」启用摄像头</div>
-    </div>
-  </div>
-
   <!-- 计数 -->
   <div class="card">
     <h2>识别计数</h2>
@@ -234,13 +298,13 @@
       <div class="counter-info">
         已用时 <b id="elapsed">0.0</b> 秒<br>
         状态 <b id="trackState">待机</b><br>
-        <span style="font-size:11px">可用下方按钮手动修正，用于对比误差</span>
+        <span style="font-size:11px">可手动修正，用于对比误差</span>
       </div>
     </div>
     <div class="btns" style="margin-top:12px">
-      <button class="btn-ghost" id="minusBtn">−1</button>
-      <button class="btn-ghost" id="plusBtn">+1</button>
-      <button class="btn-ghost" id="resetBtn">清零</button>
+      <button class="btn btn-ghost" id="minusBtn">−1</button>
+      <button class="btn btn-ghost" id="plusBtn">+1</button>
+      <button class="btn btn-ghost" id="resetBtn">清零</button>
     </div>
   </div>
 
@@ -249,8 +313,8 @@
     <h2>垂直运动信号（髋部高度）</h2>
     <div class="signal-track">
       <div class="signal-mid"></div>
-      <div class="signal-mark" id="threshUp" style="display:none"></div>
-      <div class="signal-mark" id="threshDown" style="display:none"></div>
+      <div class="signal-mark" id="threshUp"></div>
+      <div class="signal-mark" id="threshDown"></div>
       <div class="signal-fill" id="signalFill" style="height:0;top:50%"></div>
     </div>
     <div class="signal-scale"><span>高 ↑</span><span>低 ↓</span></div>
@@ -275,21 +339,15 @@
     </div>
   </div>
 
-  <!-- 控制 -->
-  <div class="btns">
-    <button class="btn-primary" id="startBtn">▶ 开始</button>
-    <button class="btn-stop" id="stopBtn" style="display:none">⏹ 停止</button>
-  </div>
-
   <div class="card">
     <h2>运行日志</h2>
     <div class="log" id="log"></div>
   </div>
 
-  <div class="note" style="background:rgba(99,102,241,.08);border-left-color:#6366f1">
+  <div class="note blue">
     <b>怎么判断结果：</b><br>
     ① 帧率 —— iPad 建议 ≥ 20fps，低于 10fps 说明设备吃力<br>
-    ② 幅度 —— 站远时数值会变，只要能看到明显起伏即可<br>
+    ② 幅度 —— 站远数值会变小，只要能看到明显起伏即可<br>
     ③ 误差 —— 自己数 30 次，对比识别结果，误差 ≤ 2 次算可用
   </div>
 
@@ -298,14 +356,13 @@
 <script type="module">
 import { PoseLandmarker, FilesetResolver } from '/vendor/mediapipe/vision_bundle.mjs';
 
-// ---------- 元素 ----------
 const $ = (id) => document.getElementById(id);
 const video = $('video');
 const overlay = $('overlay');
 const videoWrap = $('videoWrap');
 const hintText = $('hintText');
 
-// ---------- 日志 ----------
+// ══════════════ 日志 / 状态 ══════════════
 function log(msg, cls = '') {
   const el = $('log');
   const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
@@ -317,76 +374,209 @@ function log(msg, cls = '') {
 }
 
 function setStatus(name, state, text) {
-  // state: ok | err | warn | loading | ''
-  const dot = $('dot' + name);
-  const val = $('val' + name);
-  dot.className = 'dot ' + (state || '');
-  val.className = 'value ' + (state === 'ok' ? 'ok' : state === 'err' ? 'err' : state === 'warn' ? 'warn' : '');
-  val.textContent = text;
+  $('dot' + name).className = 'dot ' + (state || '');
+  const v = $('val' + name);
+  v.className = 'value ' + (state === 'ok' ? 'ok' : state === 'err' ? 'err' : state === 'warn' ? 'warn' : '');
+  v.textContent = text;
 }
 
-// ---------- 环境检查 ----------
-let envOk = true;
-
-(function checkEnvironment() {
+// ══════════════ 环境检查 ══════════════
+(function checkEnv() {
   const secure = window.isSecureContext;
   setStatus('Secure', secure ? 'ok' : 'err', secure ? '是' : '否');
-  if (!secure) {
-    envOk = false;
-    log('❌ 非 HTTPS/localhost，浏览器不允许访问摄像头', 'e');
-  }
+  if (!secure) log('❌ 非 HTTPS，浏览器不允许访问摄像头', 'e');
 
   const hasApi = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   setStatus('Api', hasApi ? 'ok' : 'err', hasApi ? '可用' : '不可用');
-  if (!hasApi) {
-    envOk = false;
-    log('❌ navigator.mediaDevices 不存在 —— 常见于微信等内置浏览器，请用 Safari / Chrome 打开', 'e');
-  }
+  if (!hasApi) log('❌ navigator.mediaDevices 不存在 —— 常见于微信内置浏览器，请用 Safari / Chrome', 'e');
 
-  log(`UA: ${navigator.userAgent.slice(0, 80)}`);
+  log('UA: ' + navigator.userAgent.slice(0, 90));
 })();
 
-// ---------- 状态 ----------
+// ══════════════ 状态 ══════════════
 let stream = null;
 let poseLandmarker = null;
 let running = false;
 let rafId = null;
 let wakeLock = null;
 
+let videoDevices = [];
+let deviceIndex = -1;
+let currentFacing = 'user';      // 'user' | 'environment'
+let isFrontCamera = true;
+
 let autoCount = 0;
 let manualDelta = 0;
 let startTime = 0;
 
-// 计数算法状态
-const signalBuf = [];          // {t, y}
-const BUF_MS = 2000;           // 滚动窗口
+// 计数算法
+const signalBuf = [];
+const BUF_MS = 2000;
 let lastCountTime = 0;
-let jumpState = 'up';          // 'up' | 'down'
-const REFRACTORY_MS = 220;     // 两次计数最小间隔（约 270 次/分上限）
-const MIN_AMPLITUDE = 0.012;   // 最小幅度阈值（归一化坐标）
+let jumpState = 'up';
+const REFRACTORY_MS = 220;
+const MIN_AMPLITUDE = 0.012;
 
 // 帧率
 let frameTimes = [];
 let lastVideoTime = -1;
+let canvasW = 0, canvasH = 0;
 
-// ---------- 模型加载 ----------
+// ══════════════ 摄像头 ══════════════
+function describeCamera(label, i) {
+  if (!label) return `摄像头 ${i + 1}`;
+  if (/front|前置|facetime/i.test(label)) return '前置镜头';
+  if (/back|rear|后置|environment/i.test(label)) return '后置镜头';
+  return label.replace(/\(.*?\)/g, '').trim() || `摄像头 ${i + 1}`;
+}
+
+function isFrontLabel(label) {
+  return /front|前置|facetime/i.test(label || '');
+}
+
+async function enumerateCameras() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    videoDevices = devices.filter(d => d.kind === 'videoinput');
+    log(`发现 ${videoDevices.length} 个摄像头: ` +
+        videoDevices.map((d, i) => describeCamera(d.label, i)).join(' / '));
+  } catch (e) {
+    videoDevices = [];
+    log('枚举摄像头失败: ' + e.message, 'w');
+  }
+}
+
+async function openCamera(deviceId) {
+  // 关闭旧的
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+
+  const constraints = {
+    audio: false,
+    video: deviceId
+      ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      : { facingMode: currentFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+  };
+
+  setStatus('Cam', 'loading', '请求中');
+  stream = await navigator.mediaDevices.getUserMedia(constraints);
+  video.srcObject = stream;
+  await video.play();
+  setStatus('Cam', 'ok', '已授权');
+
+  // 记录当前设备
+  const track = stream.getVideoTracks()[0];
+  const settings = track.getSettings ? track.getSettings() : {};
+  const label = track.label || '';
+  if (settings.deviceId) {
+    const idx = videoDevices.findIndex(d => d.deviceId === settings.deviceId);
+    if (idx >= 0) deviceIndex = idx;
+  }
+  isFrontCamera = settings.facingMode
+    ? settings.facingMode === 'user'
+    : isFrontLabel(label);
+
+  // 等元数据就绪，拿到真实分辨率
+  if (!video.videoWidth) {
+    await new Promise(res => {
+      const done = () => { video.removeEventListener('loadedmetadata', done); res(); };
+      video.addEventListener('loadedmetadata', done);
+      setTimeout(done, 1500);
+    });
+  }
+
+  updateCameraUI(label, settings);
+  videoWrap.classList.add('live');
+  $('switchBtn').disabled = false;
+  $('closeCamBtn').disabled = false;
+
+  log(`✅ 摄像头已开启：${label || '未知'} @ ${video.videoWidth}×${video.videoHeight}`, 's');
+}
+
+function updateCameraUI(label, settings) {
+  const name = isFrontCamera ? '前置镜头' : '后置镜头';
+
+  // 关键：让容器宽高比 = 视频宽高比，避免 cover 裁切造成骨架错位
+  if (video.videoWidth && video.videoHeight) {
+    videoWrap.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+    $('resBadge').textContent = `${video.videoWidth}×${video.videoHeight}`;
+  }
+
+  // 前置镜像
+  videoWrap.classList.toggle('mirrored', isFrontCamera);
+
+  $('badgeCam').textContent = name;
+  $('camState').innerHTML = `摄像头：<b>${name}</b>` +
+    (label ? ` <span style="opacity:.6">${label.replace(/\(.*?\)/g, '').trim()}</span>` : '');
+}
+
+async function switchCamera() {
+  const wasRunning = running;
+  log('切换镜头...');
+
+  // 优先按设备列表轮换（iPad 可能有多颗后置）
+  if (videoDevices.length > 1) {
+    deviceIndex = (deviceIndex + 1) % videoDevices.length;
+    const dev = videoDevices[deviceIndex];
+    try {
+      await openCamera(dev.deviceId);
+      log(`→ 已切到 ${describeCamera(dev.label, deviceIndex)}`);
+      if (wasRunning) resetCounting();
+      return;
+    } catch (e) {
+      log('该设备打开失败，回退到 facingMode 切换: ' + e.message, 'w');
+    }
+  }
+
+  // 回退：直接翻转 facingMode
+  currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+  try {
+    await openCamera(null);
+    log(`→ 已切到 ${currentFacing === 'user' ? '前置' : '后置'}镜头`);
+    if (wasRunning) resetCounting();
+  } catch (e) {
+    log('❌ 切换镜头失败: ' + e.message, 'e');
+  }
+}
+
+function closeCamera() {
+  stopRecognition(true);
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  video.srcObject = null;
+  videoWrap.classList.remove('live', 'mirrored');
+  videoWrap.style.aspectRatio = '3 / 4';
+  hintText.textContent = '点击下方「开启摄像头」';
+  $('switchBtn').disabled = true;
+  $('closeCamBtn').disabled = true;
+  $('camState').textContent = '摄像头：未开启';
+  $('camBtn').style.display = 'block';
+  $('startBtn').style.display = 'none';
+  $('stopBtn').style.display = 'none';
+  setStatus('Cam', '', '未请求');
+  setStatus('Wake', '', '未请求');
+  releaseWakeLock();
+  drawOverlay(null, 0, 0);
+  log('摄像头已关闭');
+}
+
+// ══════════════ 模型 ══════════════
 async function loadModel() {
   setStatus('Model', 'loading', '加载中');
-  log('开始加载姿态模型（本地自托管）...');
+  log('加载姿态模型（本地自托管）...');
   const t0 = performance.now();
-
   try {
     const vision = await FilesetResolver.forVisionTasks('/vendor/mediapipe/wasm');
     log('WASM 运行时就绪');
 
-    // 优先 GPU，失败回退 CPU
     for (const delegate of ['GPU', 'CPU']) {
       try {
         poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: '/models/pose_landmarker_lite.task',
-            delegate,
-          },
+          baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate },
           runningMode: 'VIDEO',
           numPoses: 1,
           minPoseDetectionConfidence: 0.5,
@@ -395,13 +585,13 @@ async function loadModel() {
         });
         const ms = Math.round(performance.now() - t0);
         setStatus('Model', 'ok', `就绪 (${delegate}, ${ms}ms)`);
-        log(`✅ 模型加载成功，delegate=${delegate}，耗时 ${ms}ms`, 's');
+        log(`✅ 模型加载成功 delegate=${delegate} 耗时 ${ms}ms`, 's');
         return true;
       } catch (e) {
         log(`delegate=${delegate} 失败: ${e.message}`, 'w');
       }
     }
-    throw new Error('GPU/CPU 两种模式均加载失败');
+    throw new Error('GPU/CPU 均加载失败');
   } catch (e) {
     setStatus('Model', 'err', '加载失败');
     log('❌ 模型加载失败: ' + e.message, 'e');
@@ -409,11 +599,18 @@ async function loadModel() {
   }
 }
 
-// ---------- 计数算法 ----------
+// ══════════════ 计数算法 ══════════════
+function resetCounting() {
+  autoCount = 0; manualDelta = 0;
+  signalBuf.length = 0;
+  lastCountTime = 0; jumpState = 'up';
+  $('autoCount').textContent = '0';
+  startTime = performance.now();
+}
+
 function updateCounting(hipY, now) {
   signalBuf.push({ t: now, y: hipY });
   while (signalBuf.length && now - signalBuf[0].t > BUF_MS) signalBuf.shift();
-
   if (signalBuf.length < 8) return;
 
   let minY = Infinity, maxY = -Infinity;
@@ -424,26 +621,32 @@ function updateCounting(hipY, now) {
   const amp = maxY - minY;
   const mid = (minY + maxY) / 2;
 
-  // 指标显示
   $('mAmp').textContent = amp.toFixed(3);
   $('mAmp').className = 'm-value ' + (amp > MIN_AMPLITUDE ? 'ok' : 'warn');
 
-  // 信号条：把 hipY 映射到 0-100%，并用窗口范围归一化
-  const fill = $('signalFill');
+  // 信号条
   const range = Math.max(amp, 0.001);
-  const norm = (hipY - (mid - range / 2)) / range;  // 0=顶部(高) 1=底部(低)
-  const clamped = Math.max(0, Math.min(1, norm));
+  const norm = Math.max(0, Math.min(1, (hipY - (mid - range / 2)) / range));
+  const fill = $('signalFill');
   fill.style.height = '100%';
-  fill.style.top = (clamped * 100) + '%';
-  fill.style.transform = 'translate(-50%, -50%)';
+  fill.style.top = (norm * 100) + '%';
 
   if (amp < MIN_AMPLITUDE) {
     $('trackState').textContent = '幅度太小';
+    $('threshUp').style.display = 'none';
+    $('threshDown').style.display = 'none';
     return;
   }
 
-  const upThresh = mid - amp * 0.30;    // 身体到高点
-  const downThresh = mid + amp * 0.30;  // 身体到低点
+  const upThresh = mid - amp * 0.30;
+  const downThresh = mid + amp * 0.30;
+
+  // 阈值参考线
+  const toPct = (y) => Math.max(0, Math.min(1, (y - (mid - range / 2)) / range)) * 100;
+  $('threshUp').style.display = 'block';
+  $('threshDown').style.display = 'block';
+  $('threshUp').style.top = toPct(upThresh) + '%';
+  $('threshDown').style.top = toPct(downThresh) + '%';
 
   if (hipY > downThresh) {
     jumpState = 'down';
@@ -462,19 +665,21 @@ function updateCounting(hipY, now) {
   }
 }
 
-// ---------- 绘制骨架 ----------
+// ══════════════ 骨架绘制 ══════════════
 const POSE_CONNECTIONS = [
-  [11,12],[11,23],[12,24],[23,24],       // 肩、髋
-  [23,25],[25,27],[24,26],[26,28],       // 腿
-  [11,13],[13,15],[12,14],[14,16],       // 臂
+  [11,12],[11,23],[12,24],[23,24],
+  [23,25],[25,27],[24,26],[26,28],
+  [11,13],[13,15],[12,14],[14,16],
 ];
-const KEY_POINTS = [11,12,23,24,25,26,27,28]; // 肩髋膝踝
+const KEY_POINTS = [11,12,23,24,25,26,27,28];
 
 function drawOverlay(landmarks, w, h) {
   const ctx = overlay.getContext('2d');
-  overlay.width = w;
-  overlay.height = h;
-  ctx.clearRect(0, 0, w, h);
+  if (w && h && (canvasW !== w || canvasH !== h)) {
+    overlay.width = w; overlay.height = h;
+    canvasW = w; canvasH = h;
+  }
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
   if (!landmarks) return;
 
   ctx.lineWidth = 3;
@@ -498,43 +703,35 @@ function drawOverlay(landmarks, w, h) {
     ctx.fill();
   }
 
-  // 髋部中点（计数参考点）
   const hipL = landmarks[23], hipR = landmarks[24];
   if (hipL && hipR) {
     const mx = ((hipL.x + hipR.x) / 2) * w;
     const my = ((hipL.y + hipR.y) / 2) * h;
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(mx, my, 12, 0, Math.PI * 2);
-    ctx.stroke();
-    // 水平参考线
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(mx, my, 12, 0, Math.PI * 2); ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,.45)';
     ctx.setLineDash([6, 6]);
-    ctx.beginPath();
-    ctx.moveTo(0, my);
-    ctx.lineTo(w, my);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, my); ctx.lineTo(w, my); ctx.stroke();
     ctx.setLineDash([]);
   }
 }
 
-// ---------- 主循环 ----------
+// ══════════════ 主循环 ══════════════
 function loop() {
   if (!running) return;
   rafId = requestAnimationFrame(loop);
-
   if (video.readyState < 2) return;
   if (video.currentTime === lastVideoTime) return;
   lastVideoTime = video.currentTime;
 
   const now = performance.now();
 
-  // 帧率
   frameTimes.push(now);
   while (frameTimes.length && now - frameTimes[0] > 1000) frameTimes.shift();
-  $('mFps').textContent = frameTimes.length;
-  $('mFps').className = 'm-value ' + (frameTimes.length >= 20 ? 'ok' : frameTimes.length >= 10 ? 'warn' : 'err');
+  const fps = frameTimes.length;
+  $('mFps').textContent = fps;
+  $('mFps').className = 'm-value ' + (fps >= 20 ? 'ok' : fps >= 10 ? 'warn' : 'err');
+  $('badgeState').textContent = `· ${fps}fps`;
 
   let result = null;
   try {
@@ -547,15 +744,13 @@ function loop() {
   const landmarks = result?.landmarks?.[0] || null;
   $('mPerson').textContent = landmarks ? '是' : '否';
   $('mPerson').className = 'm-value ' + (landmarks ? 'ok' : 'warn');
-
   drawOverlay(landmarks, video.videoWidth, video.videoHeight);
 
   if (landmarks) {
     const hipL = landmarks[23], hipR = landmarks[24];
     const vis = Math.min(hipL?.visibility ?? 1, hipR?.visibility ?? 1);
     if (vis > 0.5) {
-      const hipY = (hipL.y + hipR.y) / 2;
-      updateCounting(hipY, now);
+      updateCounting((hipL.y + hipR.y) / 2, now);
     } else {
       $('trackState').textContent = '髋部不可见';
     }
@@ -563,108 +758,109 @@ function loop() {
     $('trackState').textContent = '未检测到人';
   }
 
-  // 计时
-  if (startTime) {
-    $('elapsed').textContent = ((now - startTime) / 1000).toFixed(1);
-  }
+  if (startTime) $('elapsed').textContent = ((now - startTime) / 1000).toFixed(1);
 }
 
-// ---------- 启动 / 停止 ----------
-async function start() {
-  $('startBtn').disabled = true;
-  log('—— 开始 ——');
-
-  // 1. 摄像头
-  if (!stream) {
-    setStatus('Cam', 'loading', '请求中');
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
-      video.srcObject = stream;
-      await video.play();
-      setStatus('Cam', 'ok', '已授权');
-      log('✅ 摄像头已开启', 's');
-    } catch (e) {
-      const hint = {
-        NotAllowedError: '权限被拒绝，请在浏览器设置中允许摄像头',
-        NotFoundError: '未找到摄像头设备',
-        NotReadableError: '摄像头被其他应用占用',
-        OverconstrainedError: '摄像头不支持请求的分辨率',
-      }[e.name] || e.message;
-      setStatus('Cam', 'err', '失败');
-      hintText.textContent = '摄像头不可用：' + hint;
-      log(`❌ 摄像头失败 [${e.name}] ${hint}`, 'e');
-      $('startBtn').disabled = false;
-      return;
-    }
+// ══════════════ Wake Lock ══════════════
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) {
+    setStatus('Wake', 'warn', '不支持');
+    log('⚠️ 本浏览器不支持 Wake Lock，长时间测试可能息屏', 'w');
+    return;
   }
-
-  // 2. 模型
-  if (!poseLandmarker) {
-    const ok = await loadModel();
-    if (!ok) {
-      $('startBtn').disabled = false;
-      return;
-    }
-  }
-
-  // 3. Wake Lock
   try {
-    if ('wakeLock' in navigator) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      setStatus('Wake', 'ok', '已启用');
-      log('✅ 屏幕常亮已启用', 's');
-      wakeLock.addEventListener('release', () => {
-        setStatus('Wake', 'warn', '已释放');
-        log('⚠️ 屏幕常亮被释放', 'w');
-      });
-    } else {
-      setStatus('Wake', 'warn', '不支持');
-      log('⚠️ 本浏览器不支持 Wake Lock，长时间测试屏幕可能自动息屏', 'w');
-    }
+    wakeLock = await navigator.wakeLock.request('screen');
+    setStatus('Wake', 'ok', '已启用');
+    log('✅ 屏幕常亮已启用', 's');
+    wakeLock.addEventListener('release', () => {
+      setStatus('Wake', 'warn', '已释放');
+      log('⚠️ 屏幕常亮被释放（切后台会触发）', 'w');
+    });
   } catch (e) {
     setStatus('Wake', 'warn', '失败');
     log('⚠️ 屏幕常亮请求失败: ' + e.message, 'w');
   }
+}
 
-  // 4. 开跑
-  videoWrap.classList.add('live');
-  running = true;
-  startTime = performance.now();
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+}
+
+// ══════════════ 流程控制 ══════════════
+async function openCameraFlow() {
+  $('camBtn').disabled = true;
+  try {
+    await openCamera(null);
+    await enumerateCameras();
+    // 权限拿到后再枚举一次，此时 label 才非空
+    if (videoDevices.length > 1) {
+      const cur = stream.getVideoTracks()[0].getSettings().deviceId;
+      const idx = videoDevices.findIndex(d => d.deviceId === cur);
+      if (idx >= 0) deviceIndex = idx;
+    }
+    $('camBtn').style.display = 'none';
+    $('startBtn').style.display = 'block';
+    log('取景确认后点「开始识别」');
+  } catch (e) {
+    const hint = {
+      NotAllowedError: '权限被拒绝，请在浏览器设置里允许摄像头',
+      NotFoundError: '未找到摄像头设备',
+      NotReadableError: '摄像头被其他应用占用',
+      OverconstrainedError: '分辨率不被支持',
+    }[e.name] || e.message;
+    setStatus('Cam', 'err', '失败');
+    hintText.textContent = '摄像头不可用：' + hint;
+    log(`❌ 摄像头失败 [${e.name}] ${hint}`, 'e');
+  } finally {
+    $('camBtn').disabled = false;
+  }
+}
+
+async function startRecognition() {
+  $('startBtn').disabled = true;
+  log('—— 开始识别 ——');
+
+  if (!poseLandmarker) {
+    const ok = await loadModel();
+    if (!ok) { $('startBtn').disabled = false; return; }
+  }
+  await requestWakeLock();
+
+  resetCounting();
   frameTimes = [];
   lastVideoTime = -1;
+  running = true;
+  $('liveBadge').classList.add('on');
   $('startBtn').style.display = 'none';
   $('stopBtn').style.display = 'block';
   $('stopBtn').disabled = false;
   loop();
 }
 
-function stop() {
+function stopRecognition(silent) {
   running = false;
   if (rafId) cancelAnimationFrame(rafId);
   rafId = null;
+  $('liveBadge').classList.remove('on');
+  $('badgeState').textContent = '';
   if (stream) {
-    stream.getTracks().forEach(t => t.stop());
-    stream = null;
+    $('stopBtn').style.display = 'none';
+    $('startBtn').style.display = 'block';
+    $('startBtn').disabled = false;
+    $('startBtn').textContent = '▶ 重新识别';
   }
-  video.srcObject = null;
-  videoWrap.classList.remove('live');
-  hintText.textContent = '点击下方「开始」启用摄像头';
-  if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; }
-  setStatus('Cam', '', '未请求');
-  setStatus('Wake', '', '未请求');
-  $('startBtn').style.display = 'block';
-  $('startBtn').disabled = false;
-  $('stopBtn').style.display = 'none';
+  releaseWakeLock();
   $('trackState').textContent = '待机';
-  log('—— 停止 ——');
+  if (!silent) log('—— 停止识别 ——');
 }
 
-// ---------- 事件 ----------
-$('startBtn').addEventListener('click', start);
-$('stopBtn').addEventListener('click', stop);
+// ══════════════ 事件 ══════════════
+$('camBtn').addEventListener('click', openCameraFlow);
+$('startBtn').addEventListener('click', startRecognition);
+$('stopBtn').addEventListener('click', () => stopRecognition(false));
+$('switchBtn').addEventListener('click', switchCamera);
+$('closeCamBtn').addEventListener('click', closeCamera);
+
 $('plusBtn').addEventListener('click', () => {
   manualDelta++;
   $('autoCount').textContent = autoCount + manualDelta;
@@ -674,16 +870,15 @@ $('minusBtn').addEventListener('click', () => {
   $('autoCount').textContent = autoCount + manualDelta;
 });
 $('resetBtn').addEventListener('click', () => {
-  autoCount = 0; manualDelta = 0; signalBuf.length = 0;
-  lastCountTime = 0; jumpState = 'up';
-  $('autoCount').textContent = '0';
-  startTime = performance.now();
+  resetCounting();
   log('计数已清零');
 });
 
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden && running) {
-    log('⚠️ 页面切到后台，识别已暂停', 'w');
+// 切后台回来，Wake Lock 会失效，自动重新申请
+document.addEventListener('visibilitychange', async () => {
+  if (!document.hidden && running && !wakeLock) {
+    log('回到前台，重新申请屏幕常亮');
+    await requestWakeLock();
   }
 });
 
