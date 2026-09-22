@@ -97,6 +97,7 @@
   /* Main content */
   .main {
     flex: 1;
+    min-height: 0;              /* 允许作为滚动容器正确收缩 */
     padding: 16px;
     display: flex;
     flex-direction: column;
@@ -105,13 +106,17 @@
     -webkit-overflow-scrolling: touch;
   }
   #jumpView, #calendarView { display: flex; flex-direction: column; gap: 16px; }
+  /* 内容不足一屏时撑满，剩余高度交给计时卡吸收，底部不留白 */
+  #jumpView { flex: 1 1 auto; }
 
   /* Timer card */
   .timer-card {
     background: var(--card);
     border-radius: var(--radius);
     padding: 44px 24px;
-    /* 高屏多留白，矮屏自动收敛，避免小屏被撑出滚动 */
+    /* 吸收 jumpView 的剩余高度：内容不足一屏时把底部空白吃掉，
+       摄像头预览撑高时又不会把卡片压到 min-height 以下 */
+    flex: 1 1 auto;
     min-height: min(420px, 50dvh);
     text-align: center;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
