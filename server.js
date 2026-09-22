@@ -624,7 +624,21 @@ async function qqDocReadTemplate(sheetId) {
     { headers: qqHeaders() }
   );
   const data = await res.json();
-  const mx = gridToMatrix(data.gridData || {});
+  const grid = data.gridData || {};
+  const mx = gridToMatrix(grid);
+
+  // 同时物化每个单元格的 textFormat，供表头沿用老师的字体
+  const mxFormats = [];
+  {
+    const sr = grid.startRow || 0, sc = grid.startColumn || 0;
+    (grid.rows || []).forEach((row, ri) => {
+      (row.values || []).forEach((cell, ci) => {
+        const r = sr + ri, c = sc + ci;
+        if (!mxFormats[r]) mxFormats[r] = [];
+        mxFormats[r][c] = ((cell && cell.cellFormat) || {}).textFormat || {};
+      });
+    });
+  }
 
   // 表头行 = 某一行里出现「姓名」的那行
   let headerRow = -1;
@@ -637,6 +651,14 @@ async function qqDocReadTemplate(sheetId) {
   const headers = [];
   for (let c = 0; c < width; c++) headers.push(String(mx[headerRow][c] ?? ''));
 
+  // 顺带记下老师表头的字体与字号。颜色一概不带：老师的表头是白字配蓝底，
+  // 而 API 拿不到背景色，只搬白字会变成白字白底、整个表头看不见。
+  const headerFont = [];
+  for (let c = 0; c < width; c++) {
+    const tf = (mxFormats[headerRow] || [])[c] || {};
+    headerFont.push({ font: tf.font, fontSize: tf.fontSize });
+  }
+
   // 学生：表头之后，姓名列非空的行
   const students = [];
   for (let r = headerRow + 1; r < mx.length; r++) {
@@ -646,7 +668,7 @@ async function qqDocReadTemplate(sheetId) {
     students.push([(no === '' || no == null) ? students.length + 1 : no, name]);
   }
 
-  return { title: String(mx[0]?.[0] ?? '跳绳记录').trim(), headerRow, headers, students };
+  return { title: String(mx[0]?.[0] ?? '跳绳记录').trim(), headerRow, headers, headerFont, students };
 }
 
 function rangeReq(sheetId, startRow, startColumn, rowsOfCells) {
@@ -656,7 +678,11 @@ function rangeReq(sheetId, startRow, startColumn, rowsOfCells) {
       gridData: {
         startRow,
         startColumn,
-        rows: rowsOfCells.map((values) => ({ values: values.map((cellValue) => ({ cellValue })) })),
+        rows: rowsOfCells.map((values) => ({
+          values: values.map((v) =>
+            (v && (v.cellValue || v.cellFormat)) ? v : { cellValue: v }
+          ),
+        })),
       },
     },
   };
@@ -680,9 +706,20 @@ async function qqDocBatchUpdate(requests) {
 
 // 把模板结构写进新建的工作表（结果列保持空）
 async function qqDocFillTemplate(sheetId, tpl) {
+  // 表头单元格：沿用老师的字体与字号，并加粗。
+  // 老师原本靠「白字 + 蓝底」区分表头，而 API 没有背景色，
+  // 只搬白字会导致白字白底看不见，所以改用加粗作为区分，颜色保持默认黑。
+  const headerCells = tpl.headers.map((h, i) => {
+    const f = (tpl.headerFont || [])[i] || {};
+    const textFormat = { bold: true };
+    if (f.font) textFormat.font = f.font;
+    if (f.fontSize) textFormat.fontSize = f.fontSize;
+    return { cellValue: { text: h }, cellFormat: { textFormat } };
+  });
+
   const requests = [
     rangeReq(sheetId, 0, 0, [[{ text: tpl.title }]]),
-    rangeReq(sheetId, tpl.headerRow, 0, [tpl.headers.map((h) => ({ text: h }))]),
+    rangeReq(sheetId, tpl.headerRow, 0, [headerCells]),
   ];
   if (tpl.students.length) {
     requests.push(rangeReq(
