@@ -583,6 +583,192 @@
   .name-modal .nm-confirm:active { opacity: 0.9; }
   .name-modal .nm-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  /* ══════════ 摄像头计数 ══════════ */
+  /* 开关行 */
+  .cam-toggle-row {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .cam-toggle-row .ct-icon { font-size: 18px; flex-shrink: 0; }
+  .cam-toggle-row .ct-label { flex: 1; font-size: 14px; font-weight: 600; }
+  .cam-toggle-row .ct-hint { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .switch {
+    width: 46px; height: 27px; border-radius: 14px; border: none;
+    background: var(--border); cursor: pointer; position: relative;
+    transition: background .2s; flex-shrink: 0;
+  }
+  .switch.on { background: var(--primary); }
+  .switch::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 21px; height: 21px; border-radius: 50%; background: #fff;
+    transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+  .switch.on::after { transform: translateX(19px); }
+  .switch:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* 取景预览 */
+  .cam-preview { display: none; }
+  .cam-preview.show { display: block; }
+  .cam-preview-frame {
+    position: relative; background: #000; border-radius: var(--radius);
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
+    min-height: 180px; max-height: 44vh;
+  }
+  .cam-preview-frame video { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .cam-preview-frame canvas {
+    position: absolute; pointer-events: none;
+  }
+  .cam-preview-frame.mirrored video,
+  .cam-preview-frame.mirrored canvas { transform: scaleX(-1); }
+  .cam-preview-msg {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 8px;
+    color: var(--muted); font-size: 13px; text-align: center; padding: 16px;
+    background: #0b0d12;
+  }
+  .cam-preview-frame.live .cam-preview-msg { display: none; }
+  .cam-preview-msg .big { font-size: 32px; }
+  .cam-preview-bar {
+    display: flex; align-items: center; gap: 8px; margin-top: 8px;
+    font-size: 12px; color: var(--muted);
+  }
+  .cam-preview-bar .cp-state { flex: 1; }
+  .chip-btn {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 9px; padding: 7px 12px; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .chip-btn:active { background: var(--primary-light); border-color: var(--primary); }
+  .chip-btn:disabled { opacity: .4; }
+
+  /* 全屏计数舞台 */
+  .cam-stage {
+    position: fixed; inset: 0; z-index: 400;
+    background: #000; display: none; flex-direction: column;
+  }
+  .cam-stage.show { display: flex; }
+  .stage-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top, 10px));
+    background: rgba(0,0,0,.55); backdrop-filter: blur(8px);
+    color: #fff; font-size: 12px; flex-shrink: 0; z-index: 5;
+  }
+  .stage-bar .sb-live {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--red);
+    animation: blink 1.2s infinite; flex-shrink: 0;
+  }
+  .stage-bar .sb-info { flex: 1; opacity: .9; font-variant-numeric: tabular-nums; }
+  .stage-bar .sb-warn { color: #FFD400; font-weight: 600; }
+  .stage-bar .sb-exit {
+    background: rgba(255,255,255,.15); border: none; color: #fff;
+    border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .stage-bar .sb-exit:active { background: rgba(255,255,255,.3); }
+
+  .stage-view {
+    flex: 1; position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stage-frame { position: relative; flex-shrink: 0; }
+  .stage-frame video { width: 100%; height: 100%; object-fit: fill; display: block; }
+  .stage-frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .stage-frame.mirrored video,
+  .stage-frame.mirrored canvas { transform: scaleX(-1); }
+
+  /* 顶部渐变遮罩，保证计数在各种画面上都可读 */
+  .stage-scrim {
+    position: absolute; top: 0; left: 0; right: 0; height: 190px;
+    background: linear-gradient(to bottom, rgba(0,0,0,.55), transparent);
+    pointer-events: none; z-index: 2;
+  }
+  /* 计数：显眼黄色，顶部居中，尺寸克制避免挡人 */
+  .stage-count {
+    position: absolute; z-index: 3;
+    top: max(58px, calc(env(safe-area-inset-top, 0px) + 54px));
+    left: 50%; transform: translateX(-50%);
+    display: flex; align-items: baseline; gap: 6px;
+    padding: 6px 22px; border-radius: 999px;
+    background: rgba(0,0,0,.42); backdrop-filter: blur(6px);
+    border: 2px solid rgba(255,212,0,.55);
+  }
+  .stage-count .sc-num {
+    font-size: 54px; font-weight: 900; line-height: 1;
+    color: #FFD400;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 10px rgba(0,0,0,.85), 0 0 22px rgba(255,212,0,.45);
+  }
+  .stage-count .sc-unit {
+    font-size: 18px; font-weight: 700; color: #FFD400; opacity: .9;
+    text-shadow: 0 2px 8px rgba(0,0,0,.85);
+  }
+  .stage-count.pop { animation: countPop .28s ease-out; }
+  @keyframes countPop {
+    0% { transform: translateX(-50%) scale(1); }
+    45% { transform: translateX(-50%) scale(1.16); }
+    100% { transform: translateX(-50%) scale(1); }
+  }
+
+  .stage-timer {
+    position: absolute; bottom: max(18px, env(safe-area-inset-bottom, 18px));
+    left: 50%; transform: translateX(-50%); z-index: 3;
+    font-size: 15px; font-weight: 700; color: #fff;
+    background: rgba(0,0,0,.42); backdrop-filter: blur(6px);
+    padding: 7px 20px; border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 6px rgba(0,0,0,.8);
+  }
+
+  /* 结束后确认弹窗 */
+  .confirm-modal-overlay {
+    position: fixed; inset: 0; z-index: 420;
+    background: rgba(0,0,0,.62); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  .confirm-modal-overlay.show { display: flex; }
+  .confirm-modal {
+    background: var(--card); border-radius: 24px;
+    padding: 28px 24px; width: 100%; max-width: 340px;
+    text-align: center; animation: popIn .28s ease-out;
+  }
+  .confirm-modal .cm-title { font-size: 15px; color: var(--muted); font-weight: 600; }
+  .confirm-modal .cm-value {
+    font-size: 76px; font-weight: 900; line-height: 1.05;
+    color: var(--primary); font-variant-numeric: tabular-nums;
+    margin: 4px 0 2px;
+  }
+  .confirm-modal .cm-unit { font-size: 16px; color: var(--muted); font-weight: 600; }
+  .confirm-modal .cm-src {
+    font-size: 11px; color: var(--muted); margin-top: 8px;
+    background: var(--bg); border-radius: 8px; padding: 6px 10px; display: inline-block;
+  }
+  .cm-adjust { display: flex; gap: 10px; margin-top: 18px; }
+  .cm-adjust button {
+    flex: 1; padding: 14px; border-radius: 14px; border: 2px solid var(--border);
+    background: var(--card); font-size: 20px; font-weight: 800; color: var(--text);
+    cursor: pointer; font-family: inherit;
+  }
+  .cm-adjust button:active { background: var(--primary-light); border-color: var(--primary); }
+  .cm-input-btn {
+    margin-top: 10px; width: 100%; padding: 11px;
+    border-radius: 12px; border: 1px dashed var(--border);
+    background: transparent; color: var(--muted);
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .cm-input-btn:active { border-color: var(--primary); color: var(--primary); }
+  .cm-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .cm-actions button {
+    flex: 1; padding: 15px; border-radius: 14px; border: none;
+    font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .cm-actions .cm-cancel { background: var(--bg); color: var(--muted); }
+  .cm-actions .cm-ok { background: var(--green); color: #fff; }
+  .cm-actions .cm-ok:active { opacity: .9; }
+
   /* iPad & Tablet */
   @media (min-width: 768px) {
     .header { padding: 24px 32px 20px; }
@@ -657,6 +843,31 @@
     .about-box .about-section h3 { font-size: 17px; }
     .about-box .about-section p { font-size: 16px; line-height: 2; }
     .about-box .about-footer { font-size: 14px; }
+    /* 摄像头计数 */
+    .cam-toggle-row { padding: 14px 20px; }
+    .cam-toggle-row .ct-icon { font-size: 22px; }
+    .cam-toggle-row .ct-label { font-size: 17px; }
+    .cam-toggle-row .ct-hint { font-size: 13px; }
+    .switch { width: 54px; height: 32px; border-radius: 16px; }
+    .switch::after { width: 26px; height: 26px; }
+    .switch.on::after { transform: translateX(22px); }
+    .cam-preview-frame { max-height: 50vh; }
+    .cam-preview-bar { font-size: 14px; }
+    .chip-btn { font-size: 14px; padding: 9px 16px; }
+    .stage-count .sc-num { font-size: 72px; }
+    .stage-count .sc-unit { font-size: 24px; }
+    .stage-count { padding: 8px 30px; top: max(70px, calc(env(safe-area-inset-top, 0px) + 64px)); }
+    .stage-timer { font-size: 19px; padding: 9px 26px; }
+    .stage-bar { font-size: 14px; padding: 12px 24px; }
+    .stage-bar .sb-exit { font-size: 15px; padding: 9px 20px; }
+    .confirm-modal { max-width: 440px; padding: 36px 32px; }
+    .confirm-modal .cm-title { font-size: 17px; }
+    .confirm-modal .cm-value { font-size: 96px; }
+    .confirm-modal .cm-unit { font-size: 19px; }
+    .confirm-modal .cm-src { font-size: 13px; }
+    .cm-adjust button { font-size: 24px; padding: 16px; }
+    .cm-input-btn { font-size: 15px; padding: 13px; }
+    .cm-actions button { font-size: 18px; padding: 17px; }
   }
 
   /* iPad Pro */
@@ -690,6 +901,30 @@
 <div class="main">
   <!-- === Jump View (timer + metronome + counter + history) === -->
   <div id="jumpView">
+    <!-- 摄像头计数开关 -->
+    <div class="cam-toggle-row">
+      <span class="ct-icon">🎥</span>
+      <span class="ct-label">摄像头计数<br><span class="ct-hint">自动识别个数，结束后确认</span></span>
+      <button class="switch" id="camSwitch"></button>
+    </div>
+
+    <!-- 取景预览 -->
+    <div class="cam-preview" id="camPreview">
+      <div class="cam-preview-frame" id="camPreviewFrame">
+        <video id="camVideo" playsinline muted autoplay></video>
+        <canvas id="camCanvas"></canvas>
+        <div class="cam-preview-msg" id="camPreviewMsg">
+          <div class="big">📷</div>
+          <div id="camPreviewText">正在开启摄像头...</div>
+        </div>
+      </div>
+      <div class="cam-preview-bar">
+        <span class="cp-state" id="camPreviewState">—</span>
+        <button class="chip-btn" id="camSwitchBtn" disabled>🔄 切换</button>
+        <button class="chip-btn" id="camRetryBtn" style="display:none">重试</button>
+      </div>
+    </div>
+
     <div class="timer-card">
       <div class="timer-display" id="timerDisplay">03:00</div>
       <div class="timer-label" id="timerLabel">准备开始</div>
@@ -777,6 +1012,46 @@
     <span class="tab-icon">📅</span>
     <span class="tab-label">日历</span>
   </button>
+</div>
+
+<!-- ══════════ 全屏计数舞台 ══════════ -->
+<div class="cam-stage" id="camStage">
+  <div class="stage-bar">
+    <span class="sb-live"></span>
+    <span class="sb-info" id="stageInfo">准备中…</span>
+    <button class="sb-exit" id="stageExit">✕ 退出</button>
+  </div>
+  <div class="stage-view" id="stageView">
+    <div class="stage-scrim"></div>
+    <div class="stage-count" id="stageCount">
+      <span class="sc-num" id="stageNum">0</span>
+      <span class="sc-unit">次</span>
+    </div>
+    <div class="stage-frame" id="stageFrame">
+      <video id="stageVideo" playsinline muted autoplay></video>
+      <canvas id="stageCanvas"></canvas>
+    </div>
+    <div class="stage-timer" id="stageTimer">剩余 --:--</div>
+  </div>
+</div>
+
+<!-- ══════════ 结束后确认弹窗 ══════════ -->
+<div class="confirm-modal-overlay" id="confirmModal">
+  <div class="confirm-modal">
+    <div class="cm-title">你跳了</div>
+    <div class="cm-value" id="cmValue">0</div>
+    <div class="cm-unit">次</div>
+    <div class="cm-src" id="cmSource">摄像头自动识别</div>
+    <div class="cm-adjust">
+      <button id="cmMinus">−</button>
+      <button id="cmPlus">＋</button>
+    </div>
+    <button class="cm-input-btn" id="cmInput">⌨️ 手动输入</button>
+    <div class="cm-actions">
+      <button class="cm-cancel" id="cmCancel">取消</button>
+      <button class="cm-ok" id="cmOk">✅ 确认提交</button>
+    </div>
+  </div>
 </div>
 
 <!-- Number input modal -->
@@ -1010,6 +1285,7 @@ const countdownNum = document.getElementById('countdownNum');
 function startCountdownThenStart() {
   if (isCountingDown) return;
   isCountingDown = true;
+  camSwitch.disabled = true;
   let count = 5;
   countdownNum.textContent = count;
   countdownOverlay.classList.add('show');
@@ -1075,10 +1351,17 @@ function resetTimer() {
   counterCard.classList.remove('show');
   jumpCount = 0;
   countValue.textContent = '0';
+  // 摄像头计数复位
+  camResetCounting();
+  camCountingThisRun = false;
+  stopDetecting();
+  if (camStage.classList.contains('show')) exitStage();
+  camSwitch.disabled = false;
 }
 
-function actuallyStartTimer() {
+function actuallyStartTimer(isResume = false) {
   isRunning = true;
+  camSwitch.disabled = true;
   timerDisplay.classList.add('running');
   timerLabel.textContent = '跳绳中...';
   startBtn.className = 'start-btn running';
@@ -1089,12 +1372,24 @@ function actuallyStartTimer() {
   getAudioCtx().resume().catch(()=>{});
   startMetronome();
 
+  // 摄像头模式：进入全屏舞台并开始识别
+  if (camEnabled && camReady) {
+    camCountingThisRun = true;
+    // 续跳时保留已计数量，只清空信号窗口避免用到暂停前的数据
+    if (isResume) camResetSignal(); else camResetCounting();
+    enterStage();
+    startDetecting(stageVideo);
+  } else {
+    camCountingThisRun = false;
+  }
+
   const taskConfig = TASKS[currentTask];
   const alertedSet = new Set();
 
   timerInterval = setInterval(() => {
     remainingSeconds--;
     timerDisplay.textContent = formatTime(remainingSeconds);
+    updateStageTimer();
 
     // Voice alerts
     if (taskConfig.alerts.includes(remainingSeconds) && !alertedSet.has(remainingSeconds)) {
@@ -1125,6 +1420,10 @@ function stopTimer() {
   isRunning = false;
   stopMetronome();
   timerDisplay.classList.remove('running');
+  // 暂停时停止识别并退出舞台（摄像头保持开启）
+  stopDetecting();
+  if (camStage.classList.contains('show')) exitStage();
+  camSwitch.disabled = false;
   if (remainingSeconds > 0) {
     timerLabel.textContent = '已暂停';
     startBtn.className = 'start-btn idle';
@@ -1141,32 +1440,60 @@ function finishTimer() {
   clearInterval(timerInterval);
   timerInterval = null;
   isRunning = false;
+  camSwitch.disabled = false;
   stopMetronome();
   remainingSeconds = 0;
   timerDisplay.textContent = '00:00';
   timerDisplay.classList.remove('running');
   timerDisplay.classList.add('finished');
-  timerLabel.textContent = '时间到！快数一下跳了多少个';
   startBtn.className = 'start-btn idle';
   startBtn.innerHTML = '🔄 重来';
 
   playFinishSound();
   vibrate([200, 100, 200]);
 
-  // Show counter
+  // ── 摄像头模式：停止识别 → 退出舞台 → 播报 → 确认弹窗 ──
+  if (camCountingThisRun) {
+    camCountingThisRun = false;
+    stopDetecting();
+    exitStage();
+    jumpCount = camCount;
+    counterCard.classList.remove('show');
+    timerLabel.textContent = '时间到！请确认识别结果';
+    openConfirmModal();
+    return;
+  }
+
+  // ── 手动模式：原有流程不变 ──
+  timerLabel.textContent = '时间到！快数一下跳了多少个';
   jumpCount = 0;
   countValue.textContent = '0';
   counterCard.classList.add('show');
 }
 
-startBtn.addEventListener('click', () => {
+startBtn.addEventListener('click', async () => {
   if (remainingSeconds <= 0 && !isRunning) {
     resetTimer();
     return;
   }
+  // 摄像头模式：先确保识别模型就绪，否则开始后会白跳一场
+  if (camEnabled && camReady && !poseModelReady) {
+    const prevLabel = timerLabel.textContent;
+    startBtn.disabled = true;
+    timerLabel.textContent = '识别模型加载中…';
+    const ok = await ensurePoseModel();
+    startBtn.disabled = false;
+    timerLabel.textContent = prevLabel;
+    if (!ok) {
+      speakAlert('识别模型加载失败，已切换为手动计数');
+      setCamEnabled(false);
+      counterCard.classList.add('show');
+      return;
+    }
+  }
   // If paused, resume directly without countdown
   if (!isRunning && remainingSeconds < currentTask && remainingSeconds > 0) {
-    actuallyStartTimer();
+    actuallyStartTimer(true);
     return;
   }
   startTimer();
@@ -1203,16 +1530,19 @@ document.getElementById('numConfirm').addEventListener('click', () => {
   jumpCount = Math.max(0, val);
   countValue.textContent = jumpCount;
   numModal.classList.remove('show');
+  // 若确认弹窗开着（摄像头模式），同步刷新其数字
+  refreshConfirmValue();
 });
 numModal.addEventListener('click', (e) => {
   if (e.target === numModal) numModal.classList.remove('show');
 });
 
 // --- Submit ---
-document.getElementById('submitBtn').addEventListener('click', () => {
+// 抽成函数：手动模式的「提交记录」与摄像头模式的「确认提交」共用同一条链路
+function submitRecord() {
   if (jumpCount <= 0) {
     speakAlert('请输入跳绳个数');
-    return;
+    return false;
   }
   const records = loadRecords(currentTask, currentDate);
   records.unshift({
@@ -1234,7 +1564,10 @@ document.getElementById('submitBtn').addEventListener('click', () => {
   // Reset for next round
   counterCard.classList.remove('show');
   resetTimer();
-});
+  return true;
+}
+
+document.getElementById('submitBtn').addEventListener('click', submitRecord);
 
 // --- QQ Doc Name Binding ---
 let qqTargetRow = null;
@@ -1420,6 +1753,8 @@ function switchView(view) {
     jumpView.style.display = 'none';
     calendarView.style.display = '';
     dateLabel.style.display = 'none';
+    // 日历页用不到摄像头，关掉省电（保留开关偏好）
+    if (camStream) closeCamera();
     renderCalendar();
     renderBestRecords();
     renderCalHistory();
@@ -1427,6 +1762,11 @@ function switchView(view) {
     jumpView.style.display = '';
     calendarView.style.display = 'none';
     dateLabel.style.display = '';
+    // 回到跳绳页：开关仍为开则重新开启摄像头
+    if (camEnabled && !camStream) {
+      camPreview.classList.add('show');
+      startCameraFlow();
+    }
     renderHistory();
   }
 }
@@ -1643,6 +1983,580 @@ document.getElementById('aboutOverlay').addEventListener('click', (e) => {
     document.getElementById('aboutOverlay').classList.remove('show');
   }
 });
+
+// ══════════════════════════════════════════════════════
+// 摄像头自动计数
+//   识别在浏览器本地完成，不上传画面；后端无改动。
+//   模型与 WASM 运行时自托管于本站，首次开启时才动态加载。
+// ══════════════════════════════════════════════════════
+const camSwitch = document.getElementById('camSwitch');
+const camPreview = document.getElementById('camPreview');
+const camPreviewFrame = document.getElementById('camPreviewFrame');
+const camPreviewText = document.getElementById('camPreviewText');
+const camPreviewState = document.getElementById('camPreviewState');
+const camSwitchBtn = document.getElementById('camSwitchBtn');
+const camRetryBtn = document.getElementById('camRetryBtn');
+const camVideo = document.getElementById('camVideo');
+const camCanvas = document.getElementById('camCanvas');
+
+const camStage = document.getElementById('camStage');
+const stageView = document.getElementById('stageView');
+const stageFrame = document.getElementById('stageFrame');
+const stageVideo = document.getElementById('stageVideo');
+const stageCanvas = document.getElementById('stageCanvas');
+const stageInfo = document.getElementById('stageInfo');
+const stageNum = document.getElementById('stageNum');
+const stageTimer = document.getElementById('stageTimer');
+const stageCount = document.getElementById('stageCount');
+
+const confirmModal = document.getElementById('confirmModal');
+const cmValue = document.getElementById('cmValue');
+const cmSource = document.getElementById('cmSource');
+
+const CAM_AVAILABLE = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+let camEnabled = localStorage.getItem('jumprope_camera_on') === 'true';
+let camStream = null;
+let camReady = false;
+let camFacing = 'user';        // 设备架起来正对孩子，默认前置
+let camIsFront = true;
+let camDevices = [];
+let camDeviceIndex = -1;
+
+let poseLandmarker = null;
+let poseModelLoading = null;
+let poseModelReady = false;
+
+let detecting = false;
+let detectRafId = null;
+let activeVideo = null;
+let lastInferTs = 0;
+let lastVideoTs = -1;
+let inferTimes = [];
+// 约 30fps：跳绳最快 2.5 次/秒，30fps 下每次仍有 12 帧，精度足够
+// 相比实测的 61fps 减半，可显著降低 3 分钟任务的发热与耗电
+const INFER_INTERVAL_MS = 33;
+
+// 计数状态
+let camCount = 0;
+let camCountingThisRun = false;
+const camSignal = [];
+const CAM_BUF_MS = 2000;
+let camJumpState = 'up';
+let camLastCountTs = 0;
+const CAM_REFRACTORY_MS = 220;   // 两次计数最小间隔（上限约 270 次/分）
+const CAM_MIN_AMPLITUDE = 0.012; // 动作幅度下限，低于此值不计数
+
+// ── 计数状态复位 ──
+function camResetSignal() {
+  camSignal.length = 0;
+  camJumpState = 'up';
+  camLastCountTs = 0;
+}
+function camResetCounting() {
+  camCount = 0;
+  camResetSignal();
+  updateStageCount(false);
+}
+
+function updateStageCount(pop) {
+  stageNum.textContent = camCount;
+  if (pop) {
+    stageCount.classList.remove('pop');
+    void stageCount.offsetWidth;
+    stageCount.classList.add('pop');
+  }
+}
+
+function updateStageTimer() {
+  stageTimer.textContent = remainingSeconds > 0
+    ? `剩余 ${formatTime(remainingSeconds)}`
+    : '时间到';
+}
+
+// ── 布局 ──
+// 舞台：画面比屏幕宽就撑满高度裁左右（人物居中，安全）；
+//       比屏幕窄就撑满宽度、上下留黑边（绝不裁头脚）
+function fitStageFrame() {
+  const vw = stageVideo.videoWidth, vh = stageVideo.videoHeight;
+  const W = stageView.clientWidth, H = stageView.clientHeight;
+  if (!vw || !vh || !W || !H) return;
+  const videoAR = vw / vh, viewAR = W / H;
+  let w, h;
+  if (videoAR > viewAR) { h = H; w = Math.round(H * videoAR); }
+  else { w = W; h = Math.round(W / videoAR); }
+  stageFrame.style.width = w + 'px';
+  stageFrame.style.height = h + 'px';
+  stageCanvas.width = vw;
+  stageCanvas.height = vh;
+  stageFrame.classList.toggle('mirrored', camIsFront);
+}
+
+// 预览：canvas 精确覆盖 contain 后的视频内容区，保证骨架不错位
+function layoutPreviewCanvas() {
+  const vw = camVideo.videoWidth, vh = camVideo.videoHeight;
+  const W = camPreviewFrame.clientWidth, H = camPreviewFrame.clientHeight;
+  if (!vw || !vh || !W || !H) return;
+  const scale = Math.min(W / vw, H / vh);
+  const dw = Math.round(vw * scale), dh = Math.round(vh * scale);
+  camCanvas.width = vw;
+  camCanvas.height = vh;
+  camCanvas.style.width = dw + 'px';
+  camCanvas.style.height = dh + 'px';
+  camCanvas.style.left = Math.round((W - dw) / 2) + 'px';
+  camCanvas.style.top = Math.round((H - dh) / 2) + 'px';
+  camPreviewFrame.classList.toggle('mirrored', camIsFront);
+}
+
+async function attachStream(videoEl) {
+  if (!camStream) return;
+  camVideo.srcObject = null;
+  stageVideo.srcObject = null;
+  videoEl.srcObject = camStream;
+  try { await videoEl.play(); } catch (e) {}
+  if (!videoEl.videoWidth) {
+    await new Promise(res => {
+      const done = () => { videoEl.removeEventListener('loadedmetadata', done); res(); };
+      videoEl.addEventListener('loadedmetadata', done);
+      setTimeout(done, 1200);
+    });
+  }
+}
+
+// ── 摄像头开关与流 ──
+async function openCamStream(deviceId) {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; camReady = false; }
+
+  const constraints = {
+    audio: false,
+    video: deviceId
+      ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      : { facingMode: camFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+  };
+
+  camStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+  const track = camStream.getVideoTracks()[0];
+  const st = (track.getSettings && track.getSettings()) || {};
+  camIsFront = st.facingMode
+    ? st.facingMode === 'user'
+    : /front|前置|facetime/i.test(track.label || '');
+  if (st.deviceId) {
+    const i = camDevices.findIndex(d => d.deviceId === st.deviceId);
+    if (i >= 0) camDeviceIndex = i;
+  }
+
+  await attachStream(camVideo);
+  camReady = true;
+
+  camPreviewFrame.classList.add('live');
+  const vw = camVideo.videoWidth, vh = camVideo.videoHeight;
+  if (vw && vh) camPreviewFrame.style.aspectRatio = `${vw} / ${vh}`;
+  layoutPreviewCanvas();
+  camPreviewState.textContent = `${camIsFront ? '前置' : '后置'}镜头` + (vw ? ` ${vw}×${vh}` : '');
+  camSwitchBtn.disabled = false;
+  camRetryBtn.style.display = 'none';
+  return track;
+}
+
+async function enumerateCamDevices() {
+  try {
+    camDevices = (await navigator.mediaDevices.enumerateDevices())
+      .filter(d => d.kind === 'videoinput');
+    if (camStream) {
+      const cur = camStream.getVideoTracks()[0].getSettings().deviceId;
+      const i = camDevices.findIndex(d => d.deviceId === cur);
+      if (i >= 0) camDeviceIndex = i;
+    }
+  } catch (e) { camDevices = []; }
+}
+
+async function startCameraFlow() {
+  if (!CAM_AVAILABLE) {
+    alert('当前浏览器无法访问摄像头。\n如果用微信打开，请改用 Safari 或 Chrome 再试。');
+    setCamEnabled(false);
+    return;
+  }
+  camPreviewFrame.classList.remove('live', 'mirrored');
+  camPreviewText.textContent = '正在开启摄像头…';
+  camRetryBtn.style.display = 'none';
+  camSwitchBtn.disabled = true;
+  camPreviewState.textContent = '—';
+  try {
+    await openCamStream(null);
+    await enumerateCamDevices();
+    ensurePoseModel();          // 后台预热模型，不阻塞取景
+  } catch (e) {
+    const hint = {
+      NotAllowedError: '摄像头权限被拒绝\n请在浏览器设置里允许后点「重试」',
+      NotFoundError: '没有找到摄像头设备',
+      NotReadableError: '摄像头被其他应用占用',
+      OverconstrainedError: '摄像头不支持所需分辨率',
+    }[e.name] || e.message;
+    camReady = false;
+    camPreviewFrame.classList.remove('live');
+    camPreviewText.textContent = hint;
+    camRetryBtn.style.display = 'inline-block';
+    camSwitchBtn.disabled = true;
+  }
+}
+
+async function switchCam() {
+  if (detecting) return;
+  if (camDevices.length > 1) {
+    camDeviceIndex = (camDeviceIndex + 1) % camDevices.length;
+    try {
+      await openCamStream(camDevices[camDeviceIndex].deviceId);
+      return;
+    } catch (e) { /* 回退到 facingMode 切换 */ }
+  }
+  camFacing = camFacing === 'user' ? 'environment' : 'user';
+  try {
+    await openCamStream(null);
+  } catch (e) {
+    camPreviewFrame.classList.remove('live');
+    camPreviewText.textContent = '切换镜头失败：' + e.message;
+    camRetryBtn.style.display = 'inline-block';
+  }
+}
+
+function closeCamera() {
+  stopDetecting();
+  camStage.classList.remove('show');
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  camVideo.srcObject = null;
+  stageVideo.srcObject = null;
+  camReady = false;
+  camPreview.classList.remove('show');
+  camPreviewFrame.classList.remove('live', 'mirrored');
+  camSwitchBtn.disabled = true;
+  camPreviewState.textContent = '—';
+}
+
+function setCamEnabled(on) {
+  camEnabled = on;
+  localStorage.setItem('jumprope_camera_on', on ? 'true' : 'false');
+  camSwitch.classList.toggle('on', on);
+  if (on) {
+    camPreview.classList.add('show');
+    startCameraFlow();
+  } else {
+    closeCamera();
+  }
+}
+
+// ── 模型懒加载（只在首次开启摄像头时拉取） ──
+function ensurePoseModel() {
+  if (poseModelReady) return Promise.resolve(true);
+  if (poseModelLoading) return poseModelLoading;
+
+  poseModelLoading = (async () => {
+    try {
+      camPreviewState.textContent = '正在加载识别模型…';
+      const { PoseLandmarker, FilesetResolver } = await import('/vendor/mediapipe/vision_bundle.mjs');
+      const vision = await FilesetResolver.forVisionTasks('/vendor/mediapipe/wasm');
+      for (const delegate of ['GPU', 'CPU']) {
+        try {
+          poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate },
+            runningMode: 'VIDEO',
+            numPoses: 1,
+            minPoseDetectionConfidence: 0.5,
+            minPosePresenceConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+          });
+          poseModelReady = true;
+          if (camStream) {
+            const vw = camVideo.videoWidth, vh = camVideo.videoHeight;
+            if (vw && vh) {
+              camPreviewState.textContent =
+                `${camIsFront ? '前置' : '后置'}镜头 ${vw}×${vh}`;
+            }
+          }
+          return true;
+        } catch (e) { /* 换下一个 delegate */ }
+      }
+      throw new Error('GPU/CPU 均失败');
+    } catch (e) {
+      console.warn('姿态模型加载失败:', e);
+      poseModelLoading = null;
+      camPreviewState.textContent = '识别模型加载失败';
+      return false;
+    }
+  })();
+
+  return poseModelLoading;
+}
+
+// ── 骨架绘制（比测试页更粗更亮） ──
+const POSE_CONNECTIONS = [
+  [11,12],[11,23],[12,24],[23,24],
+  [23,25],[25,27],[24,26],[26,28],
+  [11,13],[13,15],[12,14],[14,16],
+];
+const KEY_POINTS = [11,12,23,24,25,26,27,28];
+
+function drawSkeleton(canvas, lm, vw, vh) {
+  if (!vw || !vh) return;
+  const ctx = canvas.getContext('2d');
+  if (canvas.width !== vw || canvas.height !== vh) {
+    canvas.width = vw; canvas.height = vh;
+  }
+  ctx.clearRect(0, 0, vw, vh);
+  if (!lm) return;
+
+  const lw = Math.max(4, Math.round(vw / 220));
+  const r = Math.max(6, Math.round(vw / 150));
+
+  // 连线：亮青 + 发光
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(0,229,255,.85)';
+  ctx.shadowBlur = lw * 2.2;
+  ctx.strokeStyle = '#00E5FF';
+  ctx.lineWidth = lw;
+  for (const [a, b] of POSE_CONNECTIONS) {
+    const pa = lm[a], pb = lm[b];
+    if (!pa || !pb) continue;
+    if ((pa.visibility ?? 1) < 0.4 || (pb.visibility ?? 1) < 0.4) continue;
+    ctx.beginPath();
+    ctx.moveTo(pa.x * vw, pa.y * vh);
+    ctx.lineTo(pb.x * vw, pb.y * vh);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 关节点：亮黄 + 白描边
+  for (const i of KEY_POINTS) {
+    const p = lm[i];
+    if (!p || (p.visibility ?? 1) < 0.4) continue;
+    const x = p.x * vw, y = p.y * vh;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFD400'; ctx.fill();
+    ctx.lineWidth = Math.max(2, lw * 0.45);
+    ctx.strokeStyle = '#fff'; ctx.stroke();
+  }
+
+  // 髋部参考点 + 水平虚线：直观展示计数依据
+  const hipL = lm[23], hipR = lm[24];
+  if (hipL && hipR) {
+    const mx = ((hipL.x + hipR.x) / 2) * vw;
+    const my = ((hipL.y + hipR.y) / 2) * vh;
+    ctx.strokeStyle = 'rgba(255,212,0,.85)';
+    ctx.lineWidth = Math.max(2, lw * 0.6);
+    ctx.setLineDash([10, 8]);
+    ctx.beginPath(); ctx.moveTo(0, my); ctx.lineTo(vw, my); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(mx, my, r * 1.7, 0, Math.PI * 2);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, lw * 0.55); ctx.stroke();
+  }
+}
+
+// ── 计数算法：髋部高度 + 滚动窗口 + 施密特触发 + 不应期 ──
+function camUpdateCounting(hipY, now) {
+  camSignal.push({ t: now, y: hipY });
+  while (camSignal.length && now - camSignal[0].t > CAM_BUF_MS) camSignal.shift();
+  if (camSignal.length < 8) return;
+
+  let minY = Infinity, maxY = -Infinity;
+  for (const s of camSignal) {
+    if (s.y < minY) minY = s.y;
+    if (s.y > maxY) maxY = s.y;
+  }
+  const amp = maxY - minY;
+  if (amp < CAM_MIN_AMPLITUDE) return;
+
+  const mid = (minY + maxY) / 2;
+  const upThresh = mid - amp * 0.30;
+  const downThresh = mid + amp * 0.30;
+
+  if (hipY > downThresh) {
+    camJumpState = 'down';
+  } else if (hipY < upThresh) {
+    if (camJumpState === 'down' && now - camLastCountTs > CAM_REFRACTORY_MS) {
+      camCount++;
+      camLastCountTs = now;
+      updateStageCount(true);
+    }
+    camJumpState = 'up';
+  }
+}
+
+// ── 识别循环 ──
+function updateStageInfo(warnText) {
+  if (!camStage.classList.contains('show')) return;
+  const base = `${camIsFront ? '前置' : '后置'} · ${inferTimes.length}fps`;
+  stageInfo.innerHTML = warnText
+    ? `${base} <span class="sb-warn">${warnText}</span>`
+    : base;
+}
+
+function startDetecting(videoEl) {
+  stopDetecting();
+  if (!poseLandmarker) {
+    // 模型还没就绪：退化为计时，结束时用 0 提示用户手动输入
+    stageInfo.innerHTML = '<span class="sb-warn">识别模型未就绪</span>';
+    return;
+  }
+  activeVideo = videoEl;
+  detecting = true;
+  lastVideoTs = -1;
+  lastInferTs = 0;
+  inferTimes = [];
+
+  const step = () => {
+    if (!detecting) return;
+    detectRafId = requestAnimationFrame(step);
+
+    const now = performance.now();
+    if (now - lastInferTs < INFER_INTERVAL_MS) return;
+
+    const v = activeVideo;
+    if (!v || v.readyState < 2) return;
+    if (v.currentTime === lastVideoTs) return;
+    lastVideoTs = v.currentTime;
+    lastInferTs = now;
+
+    let res;
+    try {
+      res = poseLandmarker.detectForVideo(v, now);
+    } catch (e) { return; }
+
+    inferTimes.push(now);
+    while (inferTimes.length && now - inferTimes[0] > 1000) inferTimes.shift();
+
+    const lm = res?.landmarks?.[0] || null;
+    const vw = v.videoWidth, vh = v.videoHeight;
+    drawSkeleton(v === stageVideo ? stageCanvas : camCanvas, lm, vw, vh);
+
+    let warn = '';
+    if (!lm) {
+      warn = '未检测到人';
+    } else {
+      const hipL = lm[23], hipR = lm[24];
+      const vis = Math.min(hipL?.visibility ?? 1, hipR?.visibility ?? 1);
+      if (vis <= 0.5) warn = '请后退，让全身入镜';
+      else camUpdateCounting((hipL.y + hipR.y) / 2, now);
+    }
+    updateStageInfo(warn);
+  };
+  detectRafId = requestAnimationFrame(step);
+}
+
+function stopDetecting() {
+  detecting = false;
+  if (detectRafId) cancelAnimationFrame(detectRafId);
+  detectRafId = null;
+  activeVideo = null;
+}
+
+// ── 舞台进出 ──
+function enterStage() {
+  camStage.classList.add('show');
+  stageNum.textContent = camCount;
+  updateStageTimer();
+  stageInfo.textContent = '准备中…';
+  attachStream(stageVideo).then(() => {
+    fitStageFrame();
+    // 再算一次，等布局稳定
+    requestAnimationFrame(fitStageFrame);
+  });
+}
+
+function exitStage() {
+  camStage.classList.remove('show');
+  if (camStream && camEnabled) {
+    attachStream(camVideo).then(() => layoutPreviewCanvas());
+  }
+}
+
+// ── 结束确认弹窗 ──
+function openConfirmModal() {
+  cmValue.textContent = jumpCount;
+  cmSource.textContent = `摄像头自动识别 · ${camIsFront ? '前置' : '后置'}镜头`;
+  confirmModal.classList.add('show');
+  // 延后播报，避免与结束提示音重叠
+  setTimeout(() => speakAlert(`时间到，你跳了 ${jumpCount} 个`), 450);
+}
+
+function refreshConfirmValue() {
+  if (confirmModal.classList.contains('show')) cmValue.textContent = jumpCount;
+}
+
+// ── 事件绑定 ──
+camSwitch.addEventListener('click', () => {
+  if (isRunning || isCountingDown) {
+    speakAlert('请先停止计时再切换');
+    return;
+  }
+  setCamEnabled(!camEnabled);
+});
+camSwitchBtn.addEventListener('click', switchCam);
+camRetryBtn.addEventListener('click', startCameraFlow);
+document.getElementById('stageExit').addEventListener('click', () => stopTimer());
+
+document.getElementById('cmMinus').addEventListener('click', () => {
+  jumpCount = Math.max(0, jumpCount - 1);
+  cmValue.textContent = jumpCount;
+});
+document.getElementById('cmPlus').addEventListener('click', () => {
+  jumpCount++;
+  cmValue.textContent = jumpCount;
+});
+document.getElementById('cmInput').addEventListener('click', () => {
+  numInput.value = jumpCount;
+  numModal.classList.add('show');
+  setTimeout(() => numInput.focus(), 100);
+});
+document.getElementById('cmCancel').addEventListener('click', () => {
+  confirmModal.classList.remove('show');
+  resetTimer();
+});
+document.getElementById('cmOk').addEventListener('click', () => {
+  confirmModal.classList.remove('show');
+  // 复用与手动模式完全相同的提交链路
+  if (!submitRecord()) counterCard.classList.add('show');
+});
+
+window.addEventListener('resize', () => {
+  if (camStage.classList.contains('show')) fitStageFrame();
+  if (camPreview.classList.contains('show')) layoutPreviewCanvas();
+});
+
+// 页面切后台时暂停识别，回来续上
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (detecting) { stopDetecting(); camStage.dataset.paused = '1'; }
+  } else if (camStage.classList.contains('show') && camStage.dataset.paused === '1') {
+    delete camStage.dataset.paused;
+    if (isRunning) startDetecting(stageVideo);
+  }
+});
+
+// ── 恢复上次的开关偏好（仅在权限已授予时自动开启，避免加载即弹权限框） ──
+(async function restoreCameraPref() {
+  if (!camEnabled || !CAM_AVAILABLE) {
+    if (camEnabled && !CAM_AVAILABLE) { camEnabled = false; localStorage.setItem('jumprope_camera_on', 'false'); }
+    return;
+  }
+  let granted = false;
+  try {
+    if (navigator.permissions?.query) {
+      const st = await navigator.permissions.query({ name: 'camera' });
+      granted = st.state === 'granted';
+    }
+  } catch (e) { granted = false; }
+
+  if (granted) {
+    camSwitch.classList.add('on');
+    camPreview.classList.add('show');
+    startCameraFlow();
+  } else {
+    camEnabled = false;
+    localStorage.setItem('jumprope_camera_on', 'false');
+  }
+})();
 
 // --- Init ---
 updateDateLabel();
