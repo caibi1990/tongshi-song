@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>站位检查</title>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --card: #fff;
+    --primary: #ff6b35;
+    --primary-light: #fff3ed;
+    --green: #22c55e;
+    --green-light: #ecfdf5;
+    --amber: #f59e0b;
+    --amber-light: #fffbeb;
+    --text: #1f2937;
+    --muted: #9ca3af;
+    --border: #e5e7eb;
+    --radius: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column;
+  }
+
+  .header {
+    background: linear-gradient(135deg, #ff6b35, #ff9a5c);
+    color: #fff; padding: 16px;
+    padding-top: max(16px, env(safe-area-inset-top, 16px));
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .header a { color: #fff; text-decoration: none; font-size: 14px; opacity: .88; flex-shrink: 0; }
+  .header h1 { font-size: 19px; font-weight: 700; flex: 1; }
+
+  .main {
+    flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 14px; display: flex; flex-direction: column; gap: 14px;
+  }
+
+  /* ── 取景 ── */
+  .view-card {
+    background: #000; border-radius: var(--radius); overflow: hidden;
+    position: relative; display: flex; align-items: center; justify-content: center;
+    min-height: 240px;
+  }
+  .view-card video { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .view-card canvas { position: absolute; pointer-events: none; }
+  .view-card.mirrored video,
+  .view-card.mirrored canvas { transform: scaleX(-1); }
+
+  .view-msg {
+    position: absolute; inset: 0; z-index: 3;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 24px; text-align: center;
+    background: #0b0d12; color: var(--muted); font-size: 13px; line-height: 1.7;
+  }
+  .view-card.live .view-msg { display: none; }
+  .view-msg .big { font-size: 40px; }
+  .view-msg .spinner {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.15); border-top-color: var(--primary);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 帧率角标 */
+  .fps-badge {
+    position: absolute; right: 8px; bottom: 8px; z-index: 4;
+    display: none; padding: 3px 8px; border-radius: 6px;
+    background: rgba(0,0,0,.55); color: #fff; font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .view-card.live .fps-badge { display: block; }
+
+  /* ── 状态横幅 ── */
+  .banner {
+    border-radius: var(--radius); padding: 16px;
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card); box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    border-left: 5px solid var(--muted);
+    transition: border-color .2s, background .2s;
+  }
+  .banner .b-icon { font-size: 26px; flex-shrink: 0; }
+  .banner .b-text { flex: 1; font-size: 16px; font-weight: 700; line-height: 1.5; }
+  .banner .b-sub { font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 3px; }
+  .banner.ok { border-left-color: var(--green); background: var(--green-light); }
+  .banner.ok .b-text { color: #15803d; }
+  .banner.warn { border-left-color: var(--amber); background: var(--amber-light); }
+  .banner.warn .b-text { color: #b45309; }
+
+  /* ── 检查项 ── */
+  .checks { background: var(--card); border-radius: var(--radius); padding: 6px 16px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+  .check-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  .check-row:last-child { border-bottom: none; }
+  .check-row .c-mark {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    background: var(--border); color: #9ca3af;
+  }
+  .check-row.pass .c-mark { background: var(--green); color: #fff; }
+  .check-row.fail .c-mark { background: var(--amber); color: #fff; }
+  .check-row .c-label { flex: 1; color: var(--muted); }
+  .check-row.pass .c-label { color: var(--text); }
+  .check-row .c-value { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* ── 操作 ── */
+  .actions { display: flex; gap: 10px; }
+  button.chip {
+    flex: 1; padding: 13px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--card);
+    color: var(--text); font-size: 15px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  button.chip:active { background: var(--primary-light); border-color: var(--primary); }
+  button.chip:disabled { opacity: .45; }
+
+  .tip {
+    font-size: 12px; color: var(--muted); line-height: 1.8;
+    background: rgba(255,107,53,.07); border-left: 3px solid var(--primary);
+    padding: 11px 13px; border-radius: 0 8px 8px 0;
+  }
+  .tip b { color: var(--text); }
+
+  @media (min-width: 768px) {
+    .main { padding: 20px; max-width: 720px; margin: 0 auto; width: 100%; gap: 18px; }
+    .header { padding: 20px 32px; }
+    .header h1 { font-size: 23px; }
+    .banner { padding: 20px; }
+    .banner .b-icon { font-size: 32px; }
+    .banner .b-text { font-size: 19px; }
+    .banner .b-sub { font-size: 14px; }
+    .check-row { font-size: 16px; padding: 13px 0; }
+    .check-row .c-value { font-size: 14px; }
+    button.chip { font-size: 17px; padding: 15px; }
+    .tip { font-size: 14px; }
+    .view-card { min-height: 320px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a href="/jump-rope.html">← 返回</a>
+  <h1>📐 站位检查</h1>
+</div>
+
+<div class="main">
+  <div class="view-card" id="viewCard">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="canvas"></canvas>
+    <div class="view-msg" id="viewMsg">
+      <div class="spinner" id="msgSpinner"></div>
+      <div class="big" id="msgIcon" style="display:none">📷</div>
+      <div id="msgText">正在开启摄像头…</div>
+    </div>
+    <div class="fps-badge" id="fpsBadge">--</div>
+  </div>
+
+  <div class="banner" id="banner">
+    <div class="b-icon" id="bIcon">⏳</div>
+    <div class="b-text" id="bText">正在检查…
+      <div class="b-sub" id="bSub">请站到画面中间，让全身进入画面</div>
+    </div>
+  </div>
+
+  <div class="checks">
+    <div class="check-row" id="ckDetect">
+      <span class="c-mark" id="mkDetect">·</span>
+      <span class="c-label">检测到人</span>
+      <span class="c-value" id="vDetect">—</span>
+    </div>
+    <div class="check-row" id="ckBody">
+      <span class="c-mark" id="mkBody">·</span>
+      <span class="c-label">全身入镜</span>
+      <span class="c-value" id="vBody">—</span>
+    </div>
+    <div class="check-row" id="ckDist">
+      <span class="c-mark" id="mkDist">·</span>
+      <span class="c-label">距离合适</span>
+      <span class="c-value" id="vDist">—</span>
+    </div>
+    <div class="check-row" id="ckHead">
+      <span class="c-mark" id="mkHead">·</span>
+      <span class="c-label">头顶跳跃余量</span>
+      <span class="c-value" id="vHead">—</span>
+    </div>
+    <div class="check-row" id="ckCenter">
+      <span class="c-mark" id="mkCenter">·</span>
+      <span class="c-label">左右居中</span>
+      <span class="c-value" id="vCenter">—</span>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="chip" id="switchBtn" disabled>🔄 切换镜头</button>
+    <button class="chip" id="retryBtn" style="display:none">重试</button>
+  </div>
+
+  <div class="tip">
+    <b>怎么算站好？</b><br>
+    手机架好、屏幕对着孩子，让孩子站进虚线框里：<br>
+    · 全身都在画面内，<b>头顶要留出跳跃空间</b><br>
+    · 身体高度约占画面的 4~8 成<br>
+    · 站在画面中间，左右不要偏太多<br>
+    全部打勾后就可以返回开始跳绳了。
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// 站位检查
+//   复用与跳绳页一致的模型与骨架样式，但用途不同：
+//   只做实时评估，不计数、不上报。
+//   注：骨架绘制与模型加载在跳绳页也有一份，这里刻意做成
+//   自包含页面，避免改动已经跑通的跳绳页。
+// ══════════════════════════════════════════════════════
+const $ = (id) => document.getElementById(id);
+const video = $('video');
+const canvas = $('canvas');
+const viewCard = $('viewCard');
+
+const CAM_AVAILABLE = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+const INFER_INTERVAL_MS = 33;          // 与跳绳页一致，约 30fps
+
+let camStream = null;
+let camDevices = [];
+let camDeviceIndex = -1;
+let camFacing = localStorage.getItem('jumprope_cam_facing') || 'user';
+let camSavedDeviceId = localStorage.getItem('jumprope_cam_device') || '';
+let camIsFront = true;
+
+let poseLandmarker = null;
+let rafId = null;
+let running = false;
+let lastInferTs = 0;
+let lastVideoTs = -1;
+let inferTimes = [];
+
+// 评估指标做滑动平均，避免数字与结论来回跳
+const smooth = { bodyH: [], headY: [], centerX: [] };
+const SMOOTH_N = 12;
+const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : NaN;
+const push = (arr, v) => { arr.push(v); if (arr.length > SMOOTH_N) arr.shift(); };
+
+function isFrontCamLabel(label) {
+  return /front|前置|facetime/i.test(label || '');
+}
+
+// ── 判定阈值 ──
+// bodyH：鼻尖到脚踝的高度占画面比例
+// headY：鼻尖的 y（越小越靠上），要留出跳跃余量
+const TH = {
+  bodyMin: 0.40, bodyMax: 0.80,   // 距离合适区间
+  headMin: 0.10,                  // 头顶至少留 10% 余量
+  footMax: 0.97,                  // 脚不能贴底
+  centerTol: 0.30,                // 左右允许偏移
+  visMin: 0.50,                   // 关键点可见度下限
+};
+
+function setCheck(rowId, pass, valueText) {
+  const row = $(rowId);
+  const mk = $('mk' + rowId.slice(2));
+  row.classList.toggle('pass', pass === true);
+  row.classList.toggle('fail', pass === false);
+  mk.textContent = pass === true ? '✓' : (pass === false ? '!' : '·');
+  if (valueText !== undefined) $('v' + rowId.slice(2)).textContent = valueText;
+}
+
+function setBanner(ok, icon, text, sub) {
+  const b = $('banner');
+  b.classList.toggle('ok', ok === true);
+  b.classList.toggle('warn', ok === false);
+  $('bIcon').textContent = icon;
+  $('bText').innerHTML = text + (sub ? `<div class="b-sub">${sub}</div>` : '');
+}
+
+// 取景框自适应：容器宽高比 = 视频宽高比，视频 contain 时不裁切
+function layoutCanvas() {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return;
+  viewCard.style.aspectRatio = `${vw} / ${vh}`;
+  const W = viewCard.clientWidth, H = viewCard.clientHeight;
+  const scale = Math.min(W / vw, H / vh);
+  const dw = Math.round(vw * scale), dh = Math.round(vh * scale);
+  canvas.width = vw;
+  canvas.height = vh;
+  canvas.style.width = dw + 'px';
+  canvas.style.height = dh + 'px';
+  canvas.style.left = Math.round((W - dw) / 2) + 'px';
+  canvas.style.top = Math.round((H - dh) / 2) + 'px';
+  viewCard.classList.toggle('mirrored', camIsFront);
+}
+
+// ── 骨架 + 参考框 ──
+const POSE_CONNECTIONS = [
+  [11,12],[11,23],[12,24],[23,24],
+  [23,25],[25,27],[24,26],[26,28],
+  [11,13],[13,15],[12,14],[14,16],
+];
+const KEY_POINTS = [11,12,23,24,25,26,27,28];
+
+function drawScene(lm, vw, vh, good) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, vw, vh);
+
+  // 参考框：建议的身体位置（头顶留白 + 左右居中）
+  const gx1 = vw * 0.22, gx2 = vw * 0.78;
+  const gy1 = vh * 0.08, gy2 = vh * 0.97;
+  ctx.save();
+  ctx.setLineDash([vw * 0.018, vw * 0.012]);
+  ctx.lineWidth = Math.max(2, vw / 320);
+  ctx.strokeStyle = good ? 'rgba(34,197,94,.95)' : 'rgba(255,255,255,.6)';
+  ctx.beginPath();
+  ctx.roundRect
+    ? ctx.roundRect(gx1, gy1, gx2 - gx1, gy2 - gy1, vw * 0.02)
+    : ctx.rect(gx1, gy1, gx2 - gx1, gy2 - gy1);
+  ctx.stroke();
+  ctx.restore();
+
+  if (!lm) return;
+
+  const lw = Math.max(4, Math.round(vw / 220));
+  const r = Math.max(6, Math.round(vw / 150));
+
+  ctx.save();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(0,229,255,.85)'; ctx.shadowBlur = lw * 2.2;
+  ctx.strokeStyle = '#00E5FF'; ctx.lineWidth = lw;
+  for (const [a, b] of POSE_CONNECTIONS) {
+    const pa = lm[a], pb = lm[b];
+    if (!pa || !pb) continue;
+    if ((pa.visibility ?? 1) < 0.4 || (pb.visibility ?? 1) < 0.4) continue;
+    ctx.beginPath();
+    ctx.moveTo(pa.x * vw, pa.y * vh);
+    ctx.lineTo(pb.x * vw, pb.y * vh);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  for (const i of KEY_POINTS) {
+    const p = lm[i];
+    if (!p || (p.visibility ?? 1) < 0.4) continue;
+    ctx.beginPath(); ctx.arc(p.x * vw, p.y * vh, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFD400'; ctx.fill();
+    ctx.lineWidth = Math.max(2, lw * 0.45);
+    ctx.strokeStyle = '#fff'; ctx.stroke();
+  }
+
+  // 鼻尖与脚踝：这两个点决定「有没有跳的空间」
+  const nose = lm[0];
+  if (nose && (nose.visibility ?? 1) > 0.4) {
+    ctx.beginPath(); ctx.arc(nose.x * vw, nose.y * vh, r * 1.2, 0, Math.PI * 2);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, lw * 0.5); ctx.stroke();
+  }
+  const footY = Math.max(lm[27]?.y ?? 0, lm[28]?.y ?? 0);
+  if (footY > 0) {
+    ctx.setLineDash([vw * 0.012, vw * 0.01]);
+    ctx.strokeStyle = 'rgba(255,212,0,.85)';
+    ctx.lineWidth = Math.max(2, lw * 0.55);
+    ctx.beginPath(); ctx.moveTo(0, footY * vh); ctx.lineTo(vw, footY * vh); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+// ── 评估 ──
+function evaluate(lm) {
+  if (!lm) {
+    setCheck('ckDetect', false, '未检测到');
+    setCheck('ckBody', null, '—');
+    setCheck('ckDist', null, '—');
+    setCheck('ckHead', null, '—');
+    setCheck('ckCenter', null, '—');
+    setBanner(false, '🙈', '没有看到人', '请站到画面中间');
+    return false;
+  }
+
+  const nose = lm[0];
+  const hipL = lm[23], hipR = lm[24];
+  const ankL = lm[27], ankR = lm[28];
+  const visHip = Math.min(hipL?.visibility ?? 0, hipR?.visibility ?? 0);
+  const visAnk = Math.min(ankL?.visibility ?? 0, ankR?.visibility ?? 0);
+  const vis = Math.min(visHip, visAnk);
+
+  const headY = nose?.y ?? 0;
+  const footY = Math.max(ankL?.y ?? 0, ankR?.y ?? 0);
+  const bodyH = footY - headY;
+  const centerX = ((hipL?.x ?? 0.5) + (hipR?.x ?? 0.5)) / 2;
+
+  push(smooth.bodyH, bodyH);
+  push(smooth.headY, headY);
+  push(smooth.centerX, centerX);
+  const sBodyH = avg(smooth.bodyH), sHeadY = avg(smooth.headY), sCx = avg(smooth.centerX);
+
+  const okDetect = true;
+  const okVisible = vis >= TH.visMin;
+  const okBody = okVisible && sHeadY > 0.02 && footY < TH.footMax;
+  const okDist = okVisible && sBodyH >= TH.bodyMin && sBodyH <= TH.bodyMax;
+  const okHead = okVisible && sHeadY >= TH.headMin;
+  const okCenter = okVisible && Math.abs(sCx - 0.5) <= TH.centerTol;
+
+  setCheck('ckDetect', okDetect, okVisible ? '已识别' : '关键点不清');
+  setCheck('ckBody', okBody, okBody ? '完整' : '有部位出画');
+  setCheck('ckDist', okDist, okVisible ? Math.round(sBodyH * 100) + '%' : '—');
+  setCheck('ckHead', okHead, okVisible ? Math.round(sHeadY * 100) + '%' : '—');
+  setCheck('ckCenter', okCenter, okVisible ? (sCx < 0.5 ? '偏左' : '偏右') : '—');
+
+  const allOk = okVisible && okBody && okDist && okHead && okCenter;
+
+  // 按优先级给一条最该先解决的问题
+  if (!okVisible) {
+    setBanner(false, '💡', '看不清关键部位', '光线太暗或距离太远，靠近一点或开个灯');
+  } else if (!okBody) {
+    if (sHeadY <= 0.02) setBanner(false, '⬆️', '头部出画了', '手机再架高一点，或往后退半步');
+    else setBanner(false, '⬇️', '脚部出画了', '手机再架低一点，或往后退一点');
+  } else if (!okDist) {
+    if (sBodyH > TH.bodyMax) setBanner(false, '↔️', '离得太近了', '往后退一点，让身体占画面 4~8 成');
+    else setBanner(false, '↔️', '离得太远了', '往前站一点，让身体占画面 4~8 成');
+  } else if (!okHead) {
+    setBanner(false, '⬆️', '头顶空间不够', '跳起来会出画，手机再架高一点或往后退');
+  } else if (!okCenter) {
+    setBanner(false, '↔️', sCx < 0.5 ? '站得偏左了' : '站得偏右了', '往画面中间挪一点');
+  } else {
+    setBanner(true, '✅', '位置很好，可以开始了', '回到跳绳页点开始就行');
+  }
+  return allOk;
+}
+
+// ── 模型加载（懒加载，与跳绳页共用同一份自托管资源） ──
+let modelReady = false;
+let modelLoading = null;
+
+function ensureModel() {
+  if (modelReady) return Promise.resolve(true);
+  if (modelLoading) return modelLoading;
+  modelLoading = (async () => {
+    try {
+      const { PoseLandmarker, FilesetResolver } = await import('/vendor/mediapipe/vision_bundle.mjs');
+      const vision = await FilesetResolver.forVisionTasks('/vendor/mediapipe/wasm');
+      for (const delegate of ['GPU', 'CPU']) {
+        try {
+          poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate },
+            runningMode: 'VIDEO',
+            numPoses: 1,
+            minPoseDetectionConfidence: 0.5,
+            minPosePresenceConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+          });
+          modelReady = true;
+          return true;
+        } catch (e) { /* 换下一个 delegate */ }
+      }
+      throw new Error('GPU/CPU 均失败');
+    } catch (e) {
+      console.warn('模型加载失败:', e);
+      modelLoading = null;
+      return false;
+    }
+  })();
+  return modelLoading;
+}
+
+// ── 摄像头 ──
+async function openCamStream(deviceId) {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+
+  let useId = deviceId;
+  if (!useId && camSavedDeviceId && camDevices.some(d => d.deviceId === camSavedDeviceId)) {
+    useId = camSavedDeviceId;
+  }
+  if (!useId && camFacing === 'user' && camDevices.length) {
+    const front = camDevices.find(d => isFrontCamLabel(d.label));
+    if (front) useId = front.deviceId;
+  }
+
+  camStream = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: useId
+      ? { deviceId: { exact: useId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      : { facingMode: camFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+  });
+
+  const track = camStream.getVideoTracks()[0];
+  const st = (track.getSettings && track.getSettings()) || {};
+  camIsFront = st.facingMode ? st.facingMode === 'user' : isFrontCamLabel(track.label);
+  camFacing = camIsFront ? 'user' : 'environment';
+  localStorage.setItem('jumprope_cam_facing', camFacing);
+  if (st.deviceId) {
+    camSavedDeviceId = st.deviceId;
+    localStorage.setItem('jumprope_cam_device', camSavedDeviceId);
+    const i = camDevices.findIndex(d => d.deviceId === st.deviceId);
+    if (i >= 0) camDeviceIndex = i;
+  }
+
+  video.srcObject = camStream;
+  try { await video.play(); } catch (e) {}
+  if (!video.videoWidth) {
+    await new Promise(res => {
+      const done = () => { video.removeEventListener('loadedmetadata', done); res(); };
+      video.addEventListener('loadedmetadata', done);
+      setTimeout(done, 1200);
+    });
+  }
+  layoutCanvas();
+}
+
+async function enumerateCameras() {
+  try {
+    camDevices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    if (camStream) {
+      const cur = camStream.getVideoTracks()[0].getSettings().deviceId;
+      const i = camDevices.findIndex(d => d.deviceId === cur);
+      if (i >= 0) camDeviceIndex = i;
+    }
+  } catch (e) { camDevices = []; }
+}
+
+// ── 识别循环 ──
+function loop() {
+  if (!running) return;
+  rafId = requestAnimationFrame(loop);
+
+  const now = performance.now();
+  if (now - lastInferTs < INFER_INTERVAL_MS) return;
+  if (video.readyState < 2) return;
+  if (video.currentTime === lastVideoTs) return;
+  lastVideoTs = video.currentTime;
+  lastInferTs = now;
+
+  let res = null;
+  try { res = poseLandmarker.detectForVideo(video, now); } catch (e) { return; }
+
+  inferTimes.push(now);
+  while (inferTimes.length && now - inferTimes[0] > 1000) inferTimes.shift();
+  $('fpsBadge').textContent = inferTimes.length + 'fps';
+
+  const lm = res?.landmarks?.[0] || null;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const good = evaluate(lm);        // 先评估
+  drawScene(lm, vw, vh, good);      // 参考框按评估结果着色
+}
+
+function setMsg(icon, text, spinning) {
+  $('msgSpinner').style.display = spinning ? 'block' : 'none';
+  $('msgIcon').style.display = spinning ? 'none' : 'block';
+  if (icon) $('msgIcon').textContent = icon;
+  $('msgText').textContent = text;
+}
+
+async function start() {
+  $('retryBtn').style.display = 'none';
+  $('switchBtn').disabled = true;
+  setMsg(null, '正在开启摄像头…', true);
+  viewCard.classList.remove('live');
+
+  if (!CAM_AVAILABLE) {
+    setMsg('🚫', '当前浏览器无法访问摄像头。如果用微信打开，请改用 Safari 或 Chrome。', false);
+    return;
+  }
+
+  try {
+    await openCamStream(null);
+    await enumerateCameras();
+    viewCard.classList.add('live');
+    $('switchBtn').disabled = false;
+  } catch (e) {
+    const hint = {
+      NotAllowedError: '摄像头权限被拒绝，请在浏览器设置里允许后重试',
+      NotFoundError: '没有找到摄像头设备',
+      NotReadableError: '摄像头被其他应用占用',
+      OverconstrainedError: '摄像头不支持所需分辨率',
+    }[e.name] || e.message;
+    setMsg('⚠️', hint, false);
+    $('retryBtn').style.display = 'block';
+    return;
+  }
+
+  setMsg(null, '正在加载识别模型…', true);
+  const ok = await ensureModel();
+  if (!ok) {
+    setMsg('⚠️', '识别模型加载失败，请检查网络后重试', false);
+    $('retryBtn').style.display = 'block';
+    return;
+  }
+
+  running = true;
+  lastVideoTs = -1;
+  lastInferTs = 0;
+  inferTimes = [];
+  loop();
+}
+
+function stop() {
+  running = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  video.srcObject = null;
+}
+
+// ── 事件 ──
+$('retryBtn').addEventListener('click', start);
+$('switchBtn').addEventListener('click', async () => {
+  if (camDevices.length > 1) {
+    camDeviceIndex = (camDeviceIndex + 1) % camDevices.length;
+    try { await openCamStream(camDevices[camDeviceIndex].deviceId); layoutCanvas(); return; } catch (e) {}
+  }
+  camFacing = camFacing === 'user' ? 'environment' : 'user';
+  try { await openCamStream(null); layoutCanvas(); } catch (e) {}
+});
+
+window.addEventListener('resize', layoutCanvas);
+window.addEventListener('pagehide', stop);
+
+// 返回时停掉摄像头，避免后台占用
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+  } else if (camStream && !running && poseLandmarker) {
+    running = true;
+    lastVideoTs = -1;
+    lastInferTs = 0;
+    loop();
+  }
+});
+
+start();
+</script>
+</body>
+</html>

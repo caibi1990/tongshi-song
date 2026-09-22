@@ -694,6 +694,11 @@
     border-radius: 9px; padding: 7px 12px; font-size: 12px; font-weight: 600;
     cursor: pointer; font-family: inherit;
   }
+  /* 检查入口是跳转链接，用同一套外观 */
+  a.chip-btn {
+    text-decoration: none; display: inline-flex; align-items: center;
+    white-space: nowrap; flex-shrink: 0;
+  }
   .chip-btn:active { background: var(--primary-light); border-color: var(--primary); }
   .chip-btn:disabled { opacity: .4; }
 
@@ -956,6 +961,7 @@
       </div>
       <div class="cam-status-row" id="camStatusRow">
         <span class="cp-state" id="camPreviewState">—</span>
+        <a class="chip-btn" href="/jump-posture-check.html">📐 检查</a>
         <button class="chip-btn" id="camSwitchBtn" disabled>🔄 切换</button>
         <button class="chip-btn" id="camRetryBtn" style="display:none">重试</button>
       </div>
