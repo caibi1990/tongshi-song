@@ -110,16 +110,20 @@
   .timer-card {
     background: var(--card);
     border-radius: var(--radius);
-    padding: 32px 20px;
+    padding: 44px 24px;
+    /* 高屏多留白，矮屏自动收敛，避免小屏被撑出滚动 */
+    min-height: min(420px, 50dvh);
     text-align: center;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    justify-content: center;
+    gap: 22px;
   }
   .timer-display {
-    font-size: 72px;
+    /* 随屏宽缩放：小屏不溢出，大屏更醒目 */
+    font-size: clamp(72px, 26vw, 118px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     letter-spacing: 2px;
@@ -133,13 +137,13 @@
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.08); }
   }
-  .timer-label { font-size: 14px; color: var(--muted); margin-top: -12px; }
+  .timer-label { font-size: 16px; color: var(--muted); margin-top: -10px; }
 
   .start-btn {
-    width: 120px; height: 120px;
+    width: 134px; height: 134px;
     border-radius: 50%;
     border: none;
-    font-size: 20px;
+    font-size: 21px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
@@ -778,10 +782,10 @@
     .name-bar select { font-size: 17px; padding: 10px 14px; max-width: 260px; }
     .name-bar .name-status { font-size: 14px; }
     .main { padding: 24px 32px; max-width: 700px; margin: 0 auto; width: 100%; }
-    .timer-card { padding: 40px 28px; border-radius: 20px; }
-    .timer-display { font-size: 96px; }
-    .timer-label { font-size: 16px; }
-    .start-btn { width: 148px; height: 148px; font-size: 24px; }
+    .timer-card { padding: 56px 36px; border-radius: 20px; min-height: 500px; }
+    .timer-display { font-size: 170px; }
+    .timer-label { font-size: 19px; }
+    .start-btn { width: 164px; height: 164px; font-size: 25px; }
     #jumpView, #calendarView { gap: 20px; }
     .btn-col { gap: 14px; }
     .reset-btn { font-size: 15px; padding: 8px 24px; }
@@ -871,8 +875,9 @@
     .header h1 { font-size: 30px; }
     .main { max-width: 800px; gap: 24px; }
     #jumpView, #calendarView { gap: 24px; }
-    .timer-display { font-size: 108px; }
-    .start-btn { width: 164px; height: 164px; font-size: 26px; }
+    .timer-card { min-height: 560px; }
+    .timer-display { font-size: 190px; }
+    .start-btn { width: 180px; height: 180px; font-size: 27px; }
     .reset-btn { font-size: 16px; padding: 8px 28px; }
   }
 </style>
@@ -2196,6 +2201,11 @@ const cmSource = document.getElementById('cmSource');
 
 const CAM_AVAILABLE = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
+// 摄像头标签是否表示前置（iOS 上是 "Front Camera"，安卓多为 "front"/"前置"）
+function isFrontCamLabel(label) {
+  return /front|前置|facetime/i.test(label || '');
+}
+
 let camEnabled = localStorage.getItem('jumprope_camera_on') === 'true';
 let camStream = null;
 let camReady = false;
@@ -2308,10 +2318,19 @@ async function attachStream(videoEl) {
 async function openCamStream(deviceId) {
   if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; camReady = false; }
 
+  // 未指定设备时优先按标签挑出前置摄像头。
+  // 只靠 facingMode 在部分机型（尤其多摄 iPad）上并不可靠，
+  // 会拿到后置；这里显式找前置设备，找不到再退回 facingMode。
+  let useId = deviceId;
+  if (!useId && camFacing === 'user' && camDevices.length) {
+    const front = camDevices.find(d => isFrontCamLabel(d.label));
+    if (front) useId = front.deviceId;
+  }
+
   const constraints = {
     audio: false,
-    video: deviceId
-      ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    video: useId
+      ? { deviceId: { exact: useId }, width: { ideal: 1280 }, height: { ideal: 720 } }
       : { facingMode: camFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
   };
 
@@ -2321,7 +2340,9 @@ async function openCamStream(deviceId) {
   const st = (track.getSettings && track.getSettings()) || {};
   camIsFront = st.facingMode
     ? st.facingMode === 'user'
-    : /front|前置|facetime/i.test(track.label || '');
+    : isFrontCamLabel(track.label);
+  // 以实际打开的结果为准回写朝向，保证后续回退路径一致
+  camFacing = camIsFront ? 'user' : 'environment';
   if (st.deviceId) {
     const i = camDevices.findIndex(d => d.deviceId === st.deviceId);
     if (i >= 0) camDeviceIndex = i;
