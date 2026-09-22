@@ -483,6 +483,45 @@
   .num-modal .btn-cancel { background: var(--bg); color: var(--muted); }
   .num-modal .btn-confirm { background: var(--primary); color: #fff; }
 
+  /* Name welcome modal */
+  .name-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .name-modal-overlay.show { display: flex; }
+  .name-modal {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 32px 24px;
+    width: 100%; max-width: 360px;
+    text-align: center;
+    animation: popIn 0.3s ease-out;
+  }
+  .name-modal .nm-icon { font-size: 48px; margin-bottom: 12px; }
+  .name-modal h2 { font-size: 20px; margin-bottom: 8px; color: var(--text); }
+  .name-modal .nm-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+  .name-modal select {
+    width: 100%; padding: 14px; border: 2px solid var(--border);
+    border-radius: 14px; font-size: 18px; font-weight: 600;
+    text-align: center; outline: none; color: var(--text);
+    background: var(--bg); appearance: auto; margin-bottom: 16px;
+  }
+  .name-modal select:focus { border-color: var(--primary); }
+  .name-modal .nm-actions { display: flex; gap: 10px; }
+  .name-modal .nm-actions button {
+    flex: 1; padding: 14px; border-radius: 12px; border: none;
+    font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+  }
+  .name-modal .nm-skip { background: var(--bg); color: var(--muted); }
+  .name-modal .nm-skip:active { background: #e5e7eb; }
+  .name-modal .nm-confirm { background: var(--primary); color: #fff; }
+  .name-modal .nm-confirm:active { opacity: 0.9; }
+  .name-modal .nm-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+
   /* iPad & Tablet */
   @media (min-width: 768px) {
     .header { padding: 24px 32px 20px; }
@@ -543,6 +582,12 @@
     .num-modal { width: 360px; padding: 32px 28px; }
     .num-modal h3 { font-size: 18px; }
     .num-modal input { font-size: 40px; padding: 16px; }
+    .name-modal { max-width: 440px; padding: 40px 32px; }
+    .name-modal .nm-icon { font-size: 56px; }
+    .name-modal h2 { font-size: 24px; }
+    .name-modal .nm-desc { font-size: 16px; }
+    .name-modal select { font-size: 20px; padding: 16px; }
+    .name-modal .nm-actions button { font-size: 18px; padding: 16px; }
   }
 
   /* iPad Pro */
@@ -672,6 +717,20 @@
     <div class="modal-actions">
       <button class="btn-cancel" id="numCancel">取消</button>
       <button class="btn-confirm" id="numConfirm">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- Name welcome modal (first visit) -->
+<div class="name-modal-overlay" id="nameModal">
+  <div class="name-modal">
+    <div class="nm-icon">🏃‍♀️</div>
+    <h2>选择你的姓名</h2>
+    <p class="nm-desc">选择后，每次跳绳记录会自动同步到班级的腾讯文档表格中，方便老师查看。</p>
+    <select id="nameModalSelect"><option value="">请选择...</option></select>
+    <div class="nm-actions">
+      <button class="nm-skip" id="nameModalSkip">跳过</button>
+      <button class="nm-confirm" id="nameModalConfirm" disabled>确认</button>
     </div>
   </div>
 </div>
@@ -1080,27 +1139,78 @@ async function loadQQNames() {
     const data = await res.json();
     const names = data.names || [];
 
-    // Populate select
-    nameSelect.innerHTML = '<option value="">选择姓名...</option>';
-    for (const item of names) {
-      const opt = document.createElement('option');
-      opt.value = item.row;
-      opt.textContent = item.name;
-      nameSelect.appendChild(opt);
-    }
+    // Populate both selects
+    const buildOptions = (sel) => {
+      sel.innerHTML = '<option value="">请选择...</option>';
+      for (const item of names) {
+        const opt = document.createElement('option');
+        opt.value = item.row;
+        opt.textContent = item.name;
+        sel.appendChild(opt);
+      }
+    };
+    buildOptions(nameSelect);
 
     // Restore saved selection
     const savedRow = localStorage.getItem('jumprope_qq_row');
     const savedName = localStorage.getItem('jumprope_qq_name');
+    const hasSkipped = localStorage.getItem('jumprope_qq_skipped');
+
     if (savedRow != null && savedName) {
       nameSelect.value = savedRow;
       qqTargetRow = parseInt(savedRow);
       qqTargetName = savedName;
       updateNameStatus();
+    } else if (!hasSkipped && names.length > 0) {
+      // First visit — show welcome modal
+      showNameWelcomeModal(names);
     }
   } catch (e) {
     console.warn('Failed to load QQ names:', e.message);
   }
+}
+
+// --- Name Welcome Modal ---
+function showNameWelcomeModal(names) {
+  const overlay = document.getElementById('nameModal');
+  const sel = document.getElementById('nameModalSelect');
+  const confirmBtn = document.getElementById('nameModalConfirm');
+  const skipBtn = document.getElementById('nameModalSkip');
+
+  // Populate modal select
+  sel.innerHTML = '<option value="">请选择...</option>';
+  for (const item of names) {
+    const opt = document.createElement('option');
+    opt.value = item.row;
+    opt.textContent = item.name;
+    sel.appendChild(opt);
+  }
+
+  confirmBtn.disabled = true;
+  overlay.classList.add('show');
+
+  sel.addEventListener('change', () => {
+    confirmBtn.disabled = sel.value === '';
+  });
+
+  confirmBtn.addEventListener('click', () => {
+    const row = sel.value;
+    const name = sel.options[sel.selectedIndex]?.textContent || '';
+    if (row !== '') {
+      qqTargetRow = parseInt(row);
+      qqTargetName = name;
+      localStorage.setItem('jumprope_qq_row', row);
+      localStorage.setItem('jumprope_qq_name', name);
+      nameSelect.value = row;
+      updateNameStatus();
+    }
+    overlay.classList.remove('show');
+  });
+
+  skipBtn.addEventListener('click', () => {
+    localStorage.setItem('jumprope_qq_skipped', '1');
+    overlay.classList.remove('show');
+  });
 }
 
 nameSelect.addEventListener('change', () => {
@@ -1111,6 +1221,7 @@ nameSelect.addEventListener('change', () => {
     qqTargetName = name;
     localStorage.setItem('jumprope_qq_row', row);
     localStorage.setItem('jumprope_qq_name', name);
+    localStorage.removeItem('jumprope_qq_skipped');
   } else {
     qqTargetRow = null;
     qqTargetName = '';
