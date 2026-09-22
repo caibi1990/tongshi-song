@@ -276,60 +276,6 @@
   /* Timer card needs relative for countdown overlay */
   .timer-card { position: relative; }
 
-  /* Counter card */
-  .counter-card {
-    background: var(--card);
-    border-radius: var(--radius);
-    padding: 20px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    animation: slideUp 0.3s ease-out;
-  }
-  .counter-card.show { display: flex; }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-  .counter-row {
-    display: flex; align-items: center; gap: 16px;
-  }
-  .counter-btn {
-    width: 52px; height: 52px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    background: var(--card);
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--text);
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
-  }
-  .counter-btn:active { background: var(--primary-light); border-color: var(--primary); }
-  .counter-value {
-    font-size: 48px;
-    font-weight: 800;
-    min-width: 100px;
-    text-align: center;
-    cursor: pointer;
-    color: var(--primary);
-    font-variant-numeric: tabular-nums;
-  }
-  .counter-unit { font-size: 16px; color: var(--muted); font-weight: 400; }
-  .submit-btn {
-    background: var(--green);
-    color: #fff;
-    border: none;
-    border-radius: 12px;
-    padding: 14px 48px;
-    font-size: 18px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .submit-btn:active { transform: scale(0.96); opacity: 0.9; }
-
   /* History card */
   .history-card {
     background: var(--card);
@@ -753,13 +699,6 @@
     cursor: pointer; font-family: inherit;
   }
   .cm-adjust button:active { background: var(--primary-light); border-color: var(--primary); }
-  .cm-input-btn {
-    margin-top: 10px; width: 100%; padding: 11px;
-    border-radius: 12px; border: 1px dashed var(--border);
-    background: transparent; color: var(--muted);
-    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
-  }
-  .cm-input-btn:active { border-color: var(--primary); color: var(--primary); }
   .cm-actions { display: flex; gap: 10px; margin-top: 18px; }
   .cm-actions button {
     flex: 1; padding: 15px; border-radius: 14px; border: none;
@@ -801,11 +740,6 @@
     .metro-toggle::after { width: 24px; height: 24px; top: 3px; left: 3px; }
     .metro-toggle.on::after { transform: translateX(20px); }
     .beat-dot { width: 12px; height: 12px; }
-    .counter-card { padding: 28px; border-radius: 20px; }
-    .counter-btn { width: 64px; height: 64px; font-size: 28px; }
-    .counter-value { font-size: 56px; min-width: 130px; }
-    .counter-unit { font-size: 18px; }
-    .submit-btn { padding: 16px 56px; font-size: 20px; border-radius: 14px; }
     .history-card { padding: 20px 24px; border-radius: 20px; }
     .history-title { font-size: 17px; }
     .history-item .hi-count { font-size: 24px; }
@@ -866,7 +800,6 @@
     .confirm-modal .cm-unit { font-size: 19px; }
     .confirm-modal .cm-src { font-size: 13px; }
     .cm-adjust button { font-size: 24px; padding: 16px; }
-    .cm-input-btn { font-size: 15px; padding: 13px; }
     .cm-actions button { font-size: 18px; padding: 17px; }
   }
 
@@ -878,7 +811,6 @@
     .timer-display { font-size: 108px; }
     .start-btn { width: 164px; height: 164px; font-size: 26px; }
     .reset-btn { font-size: 16px; padding: 8px 28px; }
-    .counter-value { font-size: 64px; }
   }
 </style>
 </head>
@@ -949,23 +881,6 @@
       <span class="metro-unit">次/分</span>
       <div class="beat-dot" id="beatDot"></div>
       <button class="metro-toggle on" id="metroToggle"></button>
-    </div>
-
-    <div class="counter-card" id="counterCard">
-      <div class="counter-row">
-        <button class="counter-btn" id="decBtn">−</button>
-        <div>
-          <span class="counter-value" id="countValue">0</span>
-          <span class="counter-unit">个</span>
-        </div>
-        <button class="counter-btn" id="incBtn">+</button>
-      </div>
-      <button class="submit-btn" id="submitBtn">✅ 提交记录</button>
-    </div>
-
-    <div class="history-card">
-      <div class="history-title">📋 当日记录</div>
-      <div id="historyList"></div>
     </div>
   </div>
 
@@ -1046,7 +961,6 @@
       <button id="cmMinus">−</button>
       <button id="cmPlus">＋</button>
     </div>
-    <button class="cm-input-btn" id="cmInput">⌨️ 手动输入</button>
     <div class="cm-actions">
       <button class="cm-cancel" id="cmCancel">取消</button>
       <button class="cm-ok" id="cmOk">✅ 确认提交</button>
@@ -1054,11 +968,11 @@
   </div>
 </div>
 
-<!-- Number input modal -->
+<!-- Number input modal（手动录入：仅键盘输入） -->
 <div class="num-modal-overlay" id="numModal">
   <div class="num-modal">
-    <h3>输入跳绳个数</h3>
-    <input type="number" id="numInput" min="0" max="9999" inputmode="numeric">
+    <h3 id="numModalTitle">输入跳绳个数</h3>
+    <input type="number" id="numInput" min="0" max="9999" inputmode="numeric" placeholder="0">
     <div class="modal-actions">
       <button class="btn-cancel" id="numCancel">取消</button>
       <button class="btn-confirm" id="numConfirm">确定</button>
@@ -1187,8 +1101,28 @@ function saveRecords(task, date, records) {
 
 // --- Audio ---
 function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // iOS 上开启摄像头会把音频会话切走，AudioContext 会被挂起。
+    // 这里监听状态变化并自动尝试恢复，否则节拍器会静默停摆。
+    if (audioCtx.addEventListener) {
+      audioCtx.addEventListener('statechange', () => {
+        if (audioCtx.state === 'suspended' && isRunning) {
+          audioCtx.resume().catch(() => {});
+        }
+      });
+    }
+  }
   return audioCtx;
+}
+
+// 重新唤醒音频并把节拍锚定回当前时间（摄像头取流后调用）
+function reviveAudio() {
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});
+    metroNextNoteTime = ctx.currentTime + 0.05;
+  } catch (e) {}
 }
 
 function playBeep(freq = 880, duration = 0.3, type = 'sine') {
@@ -1226,6 +1160,21 @@ function speakAlert(text) {
   } catch(e) {}
 }
 
+// 倒计时播报：间隔只有 1 秒，必须保证不堆积（否则越读越慢）
+// cancel 只在开头做一次，避免 iOS 上 cancel+speak 同帧导致不发声
+const CN_NUM = { 5: '五', 4: '四', 3: '三', 2: '二', 1: '一' };
+function speakCountdown(text, cancelFirst = false) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    if (cancelFirst) speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.rate = 1.25;
+    u.volume = 0.95;
+    speechSynthesis.speak(u);
+  } catch(e) {}
+}
+
 function vibrate(pattern) {
   try { navigator.vibrate && navigator.vibrate(pattern); } catch(e) {}
 }
@@ -1257,16 +1206,29 @@ function startMetronome() {
   stopMetronome();
   if (!metroEnabled || !isRunning) return;
   const ctx = getAudioCtx();
-  if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+  if (ctx.state !== 'running') ctx.resume().catch(()=>{});
   metroNextNoteTime = ctx.currentTime + 0.05;
   const intervalSec = 60 / metroBPM;
 
   metroInterval = setInterval(() => {
-    const ctx = getAudioCtx();
-    while (metroNextNoteTime < ctx.currentTime + metroScheduleAhead) {
+    const c = getAudioCtx();
+
+    // 自愈：音频会话被摄像头抢占时 currentTime 会冻结，
+    // 若不处理，调度会停摆（没声音）；恢复后又会一次性补发（爆音）。
+    if (c.state !== 'running') {
+      c.resume().catch(() => {});
+      metroNextNoteTime = c.currentTime + 0.05;
+      return;
+    }
+    // 落后太多则直接跳到当前时间，不补发漏掉的拍子
+    if (metroNextNoteTime < c.currentTime) {
+      metroNextNoteTime = c.currentTime + 0.05;
+    }
+
+    while (metroNextNoteTime < c.currentTime + metroScheduleAhead) {
       metroPlayTick(metroNextNoteTime);
       // Visual beat synced via setTimeout
-      const delay = Math.max(0, (metroNextNoteTime - ctx.currentTime) * 1000);
+      const delay = Math.max(0, (metroNextNoteTime - c.currentTime) * 1000);
       setTimeout(metroVisualBeat, delay);
       metroNextNoteTime += intervalSec;
     }
@@ -1290,6 +1252,7 @@ function startCountdownThenStart() {
   countdownNum.textContent = count;
   countdownOverlay.classList.add('show');
   getAudioCtx().resume().catch(()=>{});
+  speakCountdown(CN_NUM[count], true);   // 先清掉残留语音，再读「五」
   playBeep(440, 0.15);
 
   countdownInterval = setInterval(() => {
@@ -1300,6 +1263,7 @@ function startCountdownThenStart() {
       countdownNum.style.animation = 'none';
       void countdownNum.offsetWidth;
       countdownNum.style.animation = 'countPop 0.8s ease-out';
+      speakCountdown(CN_NUM[count]);
       playBeep(440, 0.15);
     } else {
       clearInterval(countdownInterval);
@@ -1307,7 +1271,7 @@ function startCountdownThenStart() {
       isCountingDown = false;
       countdownOverlay.classList.remove('show');
       playBeep(880, 0.3);
-      speakAlert('开始！');
+      speakCountdown('开始');
       actuallyStartTimer();
     }
   }, 1000);
@@ -1328,8 +1292,6 @@ const timerDisplay = document.getElementById('timerDisplay');
 const timerLabel = document.getElementById('timerLabel');
 const startBtn = document.getElementById('startBtn');
 const resetBtn = document.getElementById('resetBtn');
-const counterCard = document.getElementById('counterCard');
-const countValue = document.getElementById('countValue');
 
 function resetTimer() {
   stopTimer();
@@ -1348,9 +1310,7 @@ function resetTimer() {
   startBtn.className = 'start-btn idle';
   startBtn.innerHTML = '▶️ 开始';
   resetBtn.style.display = 'none';
-  counterCard.classList.remove('show');
   jumpCount = 0;
-  countValue.textContent = '0';
   // 摄像头计数复位
   camResetCounting();
   camCountingThisRun = false;
@@ -1367,7 +1327,6 @@ function actuallyStartTimer(isResume = false) {
   startBtn.className = 'start-btn running';
   startBtn.innerHTML = '⏹ 停止';
   resetBtn.style.display = 'none';
-  counterCard.classList.remove('show');
 
   getAudioCtx().resume().catch(()=>{});
   startMetronome();
@@ -1452,23 +1411,22 @@ function finishTimer() {
   playFinishSound();
   vibrate([200, 100, 200]);
 
-  // ── 摄像头模式：停止识别 → 退出舞台 → 播报 → 确认弹窗 ──
+  // ── 摄像头模式：停止识别 → 退出舞台 → 播报 → 确认弹窗（仅加减按钮） ──
   if (camCountingThisRun) {
     camCountingThisRun = false;
     stopDetecting();
     exitStage();
     jumpCount = camCount;
-    counterCard.classList.remove('show');
     timerLabel.textContent = '时间到！请确认识别结果';
     openConfirmModal();
     return;
   }
 
-  // ── 手动模式：原有流程不变 ──
-  timerLabel.textContent = '时间到！快数一下跳了多少个';
+  // ── 手动模式：弹框键盘录入 ──
+  timerLabel.textContent = '时间到！请输入跳绳个数';
   jumpCount = 0;
-  countValue.textContent = '0';
-  counterCard.classList.add('show');
+  speakAlert('时间到，请输入跳绳个数');
+  openNumModal({ action: 'submit', title: '你跳了多少个？', value: '' });
 }
 
 startBtn.addEventListener('click', async () => {
@@ -1487,7 +1445,6 @@ startBtn.addEventListener('click', async () => {
     if (!ok) {
       speakAlert('识别模型加载失败，已切换为手动计数');
       setCamEnabled(false);
-      counterCard.classList.add('show');
       return;
     }
   }
@@ -1499,42 +1456,53 @@ startBtn.addEventListener('click', async () => {
   startTimer();
 });
 
-// --- Counter ---
-document.getElementById('incBtn').addEventListener('click', () => {
-  jumpCount += 5;
-  countValue.textContent = jumpCount;
-});
-document.getElementById('decBtn').addEventListener('click', () => {
-  jumpCount = Math.max(0, jumpCount - 5);
-  countValue.textContent = jumpCount;
-});
-countValue.addEventListener('click', () => {
-  openNumModal();
-});
-
-// --- Number Modal ---
+// --- Number Modal（手动录入 / 二次修正共用） ---
+// action='submit'：计时结束后手动录入并直接提交（仅键盘输入，无加减按钮）
+// action='edit'  ：仅修改数字，不提交
 const numModal = document.getElementById('numModal');
 const numInput = document.getElementById('numInput');
+const numModalTitle = document.getElementById('numModalTitle');
+let numModalAction = 'edit';
 
-function openNumModal() {
-  numInput.value = jumpCount;
+function openNumModal(opts = {}) {
+  numModalAction = opts.action || 'edit';
+  numModalTitle.textContent = opts.title || '输入跳绳个数';
+  numInput.value = (opts.value != null ? opts.value : jumpCount);
   numModal.classList.add('show');
-  setTimeout(() => numInput.focus(), 100);
+  setTimeout(() => { numInput.focus(); numInput.select(); }, 120);
 }
 
-document.getElementById('numCancel').addEventListener('click', () => {
-  numModal.classList.remove('show');
-});
+function closeNumModal() { numModal.classList.remove('show'); }
+
+function cancelNumModal() {
+  closeNumModal();
+  // 手动录入阶段取消 = 放弃本次记录，回到待机
+  if (numModalAction === 'submit') resetTimer();
+}
+
+document.getElementById('numCancel').addEventListener('click', cancelNumModal);
+
 document.getElementById('numConfirm').addEventListener('click', () => {
   const val = parseInt(numInput.value) || 0;
   jumpCount = Math.max(0, val);
-  countValue.textContent = jumpCount;
-  numModal.classList.remove('show');
-  // 若确认弹窗开着（摄像头模式），同步刷新其数字
-  refreshConfirmValue();
+  closeNumModal();
+  if (numModalAction === 'submit') {
+    // 提交失败（数量为 0）则重新打开，避免数据为空
+    if (!submitRecord()) {
+      openNumModal({ action: 'submit', title: '请输入跳绳个数', value: 0 });
+    }
+  } else {
+    refreshConfirmValue();
+  }
 });
+
+// 回车直接确认，键盘录入更顺手
+numInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('numConfirm').click(); }
+});
+
 numModal.addEventListener('click', (e) => {
-  if (e.target === numModal) numModal.classList.remove('show');
+  if (e.target === numModal) cancelNumModal();
 });
 
 // --- Submit ---
@@ -1562,12 +1530,9 @@ function submitRecord() {
   syncToQQDoc(currentTask, jumpCount, currentDate);
 
   // Reset for next round
-  counterCard.classList.remove('show');
   resetTimer();
   return true;
 }
-
-document.getElementById('submitBtn').addEventListener('click', submitRecord);
 
 // --- QQ Doc Name Binding ---
 let qqTargetRow = null;
@@ -1710,6 +1675,8 @@ async function syncToQQDoc(taskSec, count, dateStr) {
 function renderHistory() {
   const records = loadRecords(currentTask, currentDate);
   const container = document.getElementById('historyList');
+  // 跳绳模式页已不再展示当日记录，日历页有自己的列表
+  if (!container) return;
   if (!records.length) {
     container.innerHTML = '<div class="history-empty">还没有记录，快来跳绳吧！🏃</div>';
     return;
@@ -2156,6 +2123,7 @@ async function openCamStream(deviceId) {
   camPreviewState.textContent = `${camIsFront ? '前置' : '后置'}镜头` + (vw ? ` ${vw}×${vh}` : '');
   camSwitchBtn.disabled = false;
   camRetryBtn.style.display = 'none';
+  reviveAudio();
   return track;
 }
 
@@ -2461,6 +2429,8 @@ function enterStage() {
     fitStageFrame();
     // 再算一次，等布局稳定
     requestAnimationFrame(fitStageFrame);
+    // 摄像头取流会抢走 iOS 音频会话，把节拍器唤醒回来
+    reviveAudio();
   });
 }
 
@@ -2496,6 +2466,7 @@ camSwitchBtn.addEventListener('click', switchCam);
 camRetryBtn.addEventListener('click', startCameraFlow);
 document.getElementById('stageExit').addEventListener('click', () => stopTimer());
 
+// 摄像头模式：仅支持按钮增减，不提供键盘输入
 document.getElementById('cmMinus').addEventListener('click', () => {
   jumpCount = Math.max(0, jumpCount - 1);
   cmValue.textContent = jumpCount;
@@ -2504,11 +2475,6 @@ document.getElementById('cmPlus').addEventListener('click', () => {
   jumpCount++;
   cmValue.textContent = jumpCount;
 });
-document.getElementById('cmInput').addEventListener('click', () => {
-  numInput.value = jumpCount;
-  numModal.classList.add('show');
-  setTimeout(() => numInput.focus(), 100);
-});
 document.getElementById('cmCancel').addEventListener('click', () => {
   confirmModal.classList.remove('show');
   resetTimer();
@@ -2516,7 +2482,10 @@ document.getElementById('cmCancel').addEventListener('click', () => {
 document.getElementById('cmOk').addEventListener('click', () => {
   confirmModal.classList.remove('show');
   // 复用与手动模式完全相同的提交链路
-  if (!submitRecord()) counterCard.classList.add('show');
+  if (!submitRecord()) {
+    // 数量为 0 无法提交，改用键盘补一个数字
+    openNumModal({ action: 'submit', title: '请输入跳绳个数', value: '' });
+  }
 });
 
 window.addEventListener('resize', () => {
