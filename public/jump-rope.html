@@ -118,6 +118,20 @@
   }
   .start-btn:active { transform: scale(0.95); }
 
+  .btn-row { display: flex; align-items: center; gap: 16px; }
+  .reset-btn {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--card);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .reset-btn:active { border-color: var(--primary); background: var(--primary-light); transform: scale(0.93); }
+
   /* Countdown overlay (5s prep) */
   .countdown-overlay {
     position: absolute; inset: 0;
@@ -381,6 +395,8 @@
     .timer-display { font-size: 96px; }
     .timer-label { font-size: 16px; }
     .start-btn { width: 148px; height: 148px; font-size: 24px; }
+    .btn-row { gap: 20px; }
+    .reset-btn { width: 68px; height: 68px; font-size: 24px; }
     .countdown-number { font-size: 120px; }
     .countdown-label { font-size: 22px; }
     .skip-btn { font-size: 17px; padding: 12px 32px; }
@@ -438,7 +454,10 @@
   <div class="timer-card">
     <div class="timer-display" id="timerDisplay">03:00</div>
     <div class="timer-label" id="timerLabel">准备开始</div>
-    <button class="start-btn idle" id="startBtn">▶️ 开始</button>
+    <div class="btn-row">
+      <button class="start-btn idle" id="startBtn">▶️ 开始</button>
+      <button class="reset-btn" id="resetBtn" style="display:none">🔄 复位</button>
+    </div>
     <!-- 5s countdown overlay -->
     <div class="countdown-overlay" id="countdownOverlay">
       <div class="countdown-number" id="countdownNum">5</div>
@@ -710,6 +729,7 @@ document.getElementById('skipCountdown').addEventListener('click', skipCountdown
 const timerDisplay = document.getElementById('timerDisplay');
 const timerLabel = document.getElementById('timerLabel');
 const startBtn = document.getElementById('startBtn');
+const resetBtn = document.getElementById('resetBtn');
 const counterCard = document.getElementById('counterCard');
 const countValue = document.getElementById('countValue');
 
@@ -729,6 +749,7 @@ function resetTimer() {
   timerLabel.textContent = '准备开始';
   startBtn.className = 'start-btn idle';
   startBtn.innerHTML = '▶️ 开始';
+  resetBtn.style.display = 'none';
   counterCard.classList.remove('show');
   jumpCount = 0;
   countValue.textContent = '0';
@@ -740,6 +761,7 @@ function actuallyStartTimer() {
   timerLabel.textContent = '跳绳中...';
   startBtn.className = 'start-btn running';
   startBtn.innerHTML = '⏹ 停止';
+  resetBtn.style.display = 'none';
   counterCard.classList.remove('show');
 
   getAudioCtx().resume().catch(()=>{});
@@ -785,8 +807,13 @@ function stopTimer() {
     timerLabel.textContent = '已暂停';
     startBtn.className = 'start-btn idle';
     startBtn.innerHTML = '▶️ 继续';
+    resetBtn.style.display = 'flex';
   }
 }
+
+resetBtn.addEventListener('click', () => {
+  resetTimer();
+});
 
 function finishTimer() {
   clearInterval(timerInterval);
