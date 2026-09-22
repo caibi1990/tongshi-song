@@ -37,20 +37,25 @@
       margin-top: 6px;
     }
     .cards {
+      --card-gap: 16px;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      gap: var(--card-gap);
       width: 100%;
       max-width: 400px;
     }
+    /* 卡片数为奇数时，最后一张保持与其它卡片等宽并整行居中 */
     .cards .card:last-child:nth-child(odd) {
       grid-column: 1 / -1;
-      max-width: 220px;
+      width: calc(50% - var(--card-gap) / 2);
       justify-self: center;
     }
     @media (max-width: 380px) {
       .cards { grid-template-columns: 1fr; }
-      .cards .card:last-child:nth-child(odd) { max-width: none; }
+      .cards .card:last-child:nth-child(odd) {
+        grid-column: auto;
+        width: 100%;
+      }
     }
     /* iPad & Tablet — 儿童友好大字模式 */
     @media (min-width: 768px) {
@@ -58,7 +63,7 @@
       .header { margin-bottom: 56px; }
       .header h1 { font-size: 42px; }
       .header p { font-size: 20px; margin-top: 10px; }
-      .cards { max-width: 640px; gap: 28px; }
+      .cards { max-width: 640px; --card-gap: 28px; }
       .card { padding: 44px 36px; border-radius: 28px; gap: 16px; }
       .card-icon { width: 96px; height: 96px; font-size: 48px; border-radius: 26px; }
       .card-title { font-size: 24px; }
@@ -69,7 +74,7 @@
     @media (min-width: 1024px) {
       .header h1 { font-size: 48px; }
       .header p { font-size: 22px; }
-      .cards { max-width: 720px; gap: 32px; }
+      .cards { max-width: 720px; --card-gap: 32px; }
       .card { padding: 52px 44px; }
       .card-icon { width: 108px; height: 108px; font-size: 54px; }
       .card-title { font-size: 28px; }
