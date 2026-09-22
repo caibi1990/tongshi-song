@@ -236,6 +236,27 @@
   }
   .cd-skip:active { background: rgba(255,255,255,.3); transform: scale(.97); }
 
+  /* 腾讯文档同步失败弹窗 */
+  .sf-modal { max-width: 360px; }
+  .sf-icon { font-size: 40px; line-height: 1; margin-bottom: 10px; }
+  .sf-modal .cm-title { font-size: 17px; color: var(--text); font-weight: 700; margin-bottom: 8px; }
+  .sf-lead { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 14px; }
+  .sf-lead b { color: #dc2626; }
+  .sf-detail {
+    background: var(--bg); border-radius: 12px; padding: 12px 14px;
+    font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.5;
+  }
+  .sf-detail .sf-sub { font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 3px; }
+  .sf-reason {
+    font-size: 12px; color: var(--muted); line-height: 1.7;
+    margin-top: 10px; text-align: left; word-break: break-word;
+  }
+  .sf-link {
+    display: inline-block; margin-top: 14px;
+    font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 600;
+  }
+  .sf-link:active { opacity: .7; }
+
   /* ══════════ 识别引擎准备提示 ══════════ */
   /* 默认是底部小胶囊：模型和运行时已长缓存，二次进入只是重新初始化，
      几百毫秒就绪。原来用全屏遮罩会把取景画面整个盖住，白等一场。 */
@@ -1075,6 +1096,27 @@
       <canvas id="stageCanvas"></canvas>
     </div>
     <div class="stage-timer" id="stageTimer">剩余 --:--</div>
+  </div>
+</div>
+
+<!-- ══════════ 腾讯文档同步失败弹窗 ══════════ -->
+<div class="confirm-modal-overlay" id="syncFailModal">
+  <div class="confirm-modal sf-modal">
+    <div class="sf-icon">⚠️</div>
+    <div class="cm-title">腾讯文档同步失败</div>
+    <p class="sf-lead">这次成绩已存到本机，但<b>没有写入班级表格</b>，需要你手动补录。</p>
+    <div class="sf-detail">
+      <div id="sfWho">—</div>
+      <div class="sf-sub" id="sfWhen">—</div>
+    </div>
+    <div class="sf-reason">原因：<span id="sfReason">—</span></div>
+    <div class="cm-actions">
+      <button class="cm-cancel" id="sfDismiss">知道了</button>
+      <button class="cm-ok" id="sfRetry">重试同步</button>
+    </div>
+    <a class="sf-link" id="sfOpen"
+       href="https://docs.qq.com/sheet/DREFoVWxyTWRqanVZ"
+       target="_blank" rel="noopener">打开腾讯文档手动补录 →</a>
   </div>
 </div>
 
@@ -1927,10 +1969,39 @@ function updateNameStatus() {
 }
 
 // --- QQ Doc Sync ---
+const SYNC_TASK_LABEL = { 180: '3分钟', 60: '1分钟', 30: '30秒' };
+
+// 服务端/腾讯文档的报错偏技术，转成家长看得懂的说法
+function friendlySyncError(raw) {
+  const m = String(raw || '');
+  if (/not found in spreadsheet/i.test(m)) return '班级表格里还没有今天这个日期的工作表';
+  if (/access token not configured/i.test(m)) return '服务端还没配置腾讯文档凭证';
+  if (/Invalid taskSec/i.test(m)) return '任务类型不识别';
+  if (/TTS|timeout/i.test(m)) return '服务端请求超时';
+  if (/QQ Doc API error/i.test(m)) return '腾讯文档接口返回错误：' + m.replace(/^QQ Doc API error:?\s*/, '');
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return '网络连接失败';
+  return m || '未知错误';
+}
+
+// 同步失败的上下文，供「重试」复用
+let lastSyncFail = null;
+
+function showSyncFail(ctx) {
+  lastSyncFail = ctx;
+  const subj = SYNC_TASK_LABEL[ctx.taskSec] || (ctx.taskSec + '秒');
+  document.getElementById('sfWho').textContent =
+    `${qqTargetName || '未选姓名'} · ${subj} · ${ctx.count} 个`;
+  document.getElementById('sfWhen').textContent = formatDateCN(ctx.dateStr) + ' · 成绩已存本机';
+  document.getElementById('sfReason').textContent = friendlySyncError(ctx.reason);
+  document.getElementById('syncFailModal').classList.add('show');
+}
+
+// 返回 { ok } / { ok:false, skipped:true }
 async function syncToQQDoc(taskSec, count, dateStr) {
   if (qqTargetRow == null) {
+    // 用户主动跳过绑定姓名，不算失败，也不打扰
     console.warn('⚠️ QQ Doc sync skipped: no student selected');
-    return;
+    return { ok: false, skipped: true };
   }
   try {
     const res = await fetch('/api/qq-doc/write-jump', {
@@ -1938,16 +2009,41 @@ async function syncToQQDoc(taskSec, count, dateStr) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ taskSec, count, dateStr, targetRow: qqTargetRow }),
     });
-    const data = await res.json();
-    if (data.ok) {
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok) {
       console.log(`✅ QQ Doc synced: ${qqTargetName} ${taskSec}s = ${count}, sheet=${data.sheetTitle}`);
-    } else {
-      console.warn('⚠️ QQ Doc sync failed:', data.error);
+      return { ok: true };
     }
+    const reason = data.error || `服务返回 HTTP ${res.status}`;
+    console.warn('⚠️ QQ Doc sync failed:', reason);
+    showSyncFail({ taskSec, count, dateStr, reason });
+    return { ok: false, reason };
   } catch (e) {
     console.warn('⚠️ QQ Doc sync error:', e.message);
+    showSyncFail({ taskSec, count, dateStr, reason: e.message });
+    return { ok: false, reason: e.message };
   }
 }
+
+// 弹窗交互：重试 / 知道了
+document.getElementById('sfDismiss').addEventListener('click', () => {
+  document.getElementById('syncFailModal').classList.remove('show');
+});
+
+document.getElementById('sfRetry').addEventListener('click', async () => {
+  if (!lastSyncFail) return;
+  const btn = document.getElementById('sfRetry');
+  const prev = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '正在重试…';
+  const r = await syncToQQDoc(lastSyncFail.taskSec, lastSyncFail.count, lastSyncFail.dateStr);
+  btn.disabled = false;
+  btn.textContent = prev;
+  if (r.ok) {
+    document.getElementById('syncFailModal').classList.remove('show');
+    playVoice('recorded');
+  }
+});
 
 // --- History ---
 function renderHistory() {
