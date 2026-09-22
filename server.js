@@ -423,7 +423,8 @@ async function qqDocFindSheet(dateStr) {
   const sheetTitle = `${m}.${d}`;
   let sheets = await qqDocGetSheets();
   if (!sheets[sheetTitle]) {
-    // 可能是刚补建的工作表，缓存里还没有 —— 强制刷新一次
+    // 可能是老师刚建好工作表而缓存还旧 —— 强制刷新一次再判定，
+    // 免得把「老师已经建了」误判成缺表而白白报错
     qqSheetCache = {};
     sheets = await qqDocGetSheets();
   }
@@ -488,15 +489,13 @@ app.post('/api/qq-doc/write-jump', async (req, res) => {
       return res.status(500).json({ error: 'QQ Doc access token not configured' });
     }
 
-    // 目标日期的工作表不存在就地补建一张带结构的空表，再写入。
-    // 这样不存在「老师还没建当天表」的窗口期，也不会预先建出未来几天的表。
-    let { sheetId, sheetTitle } = await qqDocFindSheet(dateStr);
-    let sheetCreated = false;
+    // 缺表就报错，由前端弹窗提醒手动处理。
+    // 刻意不自动建表：API 拿不到背景色/边框/列宽，自动建出来的表
+    // 和老师原有工作表格式不一致，反而添乱。家长在腾讯文档里
+    // 复制一张工作表改名，再点弹窗里的「重试同步」即可。
+    const { sheetId, sheetTitle } = await qqDocFindSheet(dateStr);
     if (!sheetId) {
-      const tpl = await qqDocReadTemplateFromLatest();
-      sheetId = await qqDocCreateSheet(sheetTitle, tpl);
-      sheetCreated = true;
-      console.log(`QQ Doc 工作表 ${sheetTitle} 不存在，已按模板补建（学生 ${tpl.students.length} 人）`);
+      return res.status(404).json({ error: `Sheet "${sheetTitle}" not found in spreadsheet` });
     }
 
     // Map taskSec to column index (0-based): 180->col2, 60->col3, 30->col4
@@ -546,274 +545,9 @@ app.post('/api/qq-doc/write-jump', async (req, res) => {
       return res.status(500).json({ error: result.message || 'QQ Doc API error' });
     }
 
-    res.json({ ok: true, sheetTitle, row: targetRow, col, value: cellValue, sheetCreated });
+    res.json({ ok: true, sheetTitle, row: targetRow, col, value: cellValue });
   } catch (err) {
     console.error('QQ Doc write error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ══════════════════════════════════════════════════════════
-// 预先补齐未来几天的工作表
-//   表格是按日期分工作表的（标题形如 9.20）。老师没建当天的表时，
-//   跳绳成绩就没地方写。这里每天往后检查几天，缺哪天的就补一张。
-//
-//   「补一张空的」不是真的空白 —— 空白表里写第 20 行的个数毫无意义。
-//   新建的表会带上标题、表头、序号与姓名，结果列留空，
-//   结构与已有工作表完全一致，可以直接写入。
-//
-//   只新增缺失的工作表，绝不改动或删除老师已有的任何工作表。
-// ══════════════════════════════════════════════════════════
-function qqHeaders() {
-  return {
-    'Access-Token': QQ_DOC.accessToken,
-    'Client-Id': QQ_DOC.clientId,
-    'Open-Id': QQ_DOC.openId,
-  };
-}
-
-// 不带缓存地读取工作表列表（新建之后必须能看到）
-async function qqDocFetchSheetsFresh() {
-  const res = await fetch(
-    `https://docs.qq.com/openapi/spreadsheet/v3/files/${QQ_DOC.fileId}`,
-    { headers: qqHeaders() }
-  );
-  const data = await res.json();
-  return (data.properties || []).map((p) => ({ sheetId: p.sheetId, title: p.title }));
-}
-
-// 东八区日期串
-function shanghaiDate(offsetDays = 0) {
-  const t = Date.now() + 8 * 3600 * 1000 + offsetDays * 86400000;
-  return new Date(t).toISOString().slice(0, 10);
-}
-
-// 与老师现有命名一致：9.20 / 10.5（不补前导零）
-function sheetTitleOf(dateStr) {
-  const [, m, d] = dateStr.split('-').map(Number);
-  return `${m}.${d}`;
-}
-
-// 标题归一化：把 "9.05" / "9.5" 都归到 9-5，避免误判重复
-function normalizeSheetTitle(title) {
-  const m = String(title).trim().match(/^(\d{1,2})\.(\d{1,2})$/);
-  return m ? `${Number(m[1])}-${Number(m[2])}` : null;
-}
-
-function gridToMatrix(grid) {
-  const startRow = grid.startRow || 0;
-  const startCol = grid.startColumn || 0;
-  const mx = [];
-  (grid.rows || []).forEach((row, ri) => {
-    (row.values || []).forEach((cell, ci) => {
-      const r = startRow + ri, c = startCol + ci;
-      if (!mx[r]) mx[r] = [];
-      const v = cell && cell.cellValue;
-      if (v && typeof v.text === 'string') mx[r][c] = v.text;
-      else if (v && typeof v.number === 'number') mx[r][c] = v.number;
-      else mx[r][c] = '';
-    });
-  });
-  return mx;
-}
-
-// 从一张已有工作表里提取「结构模板」
-async function qqDocReadTemplate(sheetId) {
-  const res = await fetch(
-    `https://docs.qq.com/openapi/spreadsheet/v3/files/${QQ_DOC.fileId}/${sheetId}/A1:H80`,
-    { headers: qqHeaders() }
-  );
-  const data = await res.json();
-  const grid = data.gridData || {};
-  const mx = gridToMatrix(grid);
-
-  // 同时物化每个单元格的 textFormat，供表头沿用老师的字体
-  const mxFormats = [];
-  {
-    const sr = grid.startRow || 0, sc = grid.startColumn || 0;
-    (grid.rows || []).forEach((row, ri) => {
-      (row.values || []).forEach((cell, ci) => {
-        const r = sr + ri, c = sc + ci;
-        if (!mxFormats[r]) mxFormats[r] = [];
-        mxFormats[r][c] = ((cell && cell.cellFormat) || {}).textFormat || {};
-      });
-    });
-  }
-
-  // 表头行 = 某一行里出现「姓名」的那行
-  let headerRow = -1;
-  for (let r = 0; r < mx.length && headerRow < 0; r++) {
-    if ((mx[r] || []).some((v) => String(v).trim() === '姓名')) headerRow = r;
-  }
-  if (headerRow < 0) return null;
-
-  const width = Math.max(8, (mx[headerRow] || []).length);
-  const headers = [];
-  for (let c = 0; c < width; c++) headers.push(String(mx[headerRow][c] ?? ''));
-
-  // 顺带记下老师表头的字体与字号。颜色一概不带：老师的表头是白字配蓝底，
-  // 而 API 拿不到背景色，只搬白字会变成白字白底、整个表头看不见。
-  const headerFont = [];
-  for (let c = 0; c < width; c++) {
-    const tf = (mxFormats[headerRow] || [])[c] || {};
-    headerFont.push({ font: tf.font, fontSize: tf.fontSize });
-  }
-
-  // 学生：表头之后，姓名列非空的行
-  const students = [];
-  for (let r = headerRow + 1; r < mx.length; r++) {
-    const name = String(mx[r]?.[1] ?? '').trim();
-    if (!name) continue;
-    const no = mx[r][0];
-    students.push([(no === '' || no == null) ? students.length + 1 : no, name]);
-  }
-
-  return { title: String(mx[0]?.[0] ?? '跳绳记录').trim(), headerRow, headers, headerFont, students };
-}
-
-function rangeReq(sheetId, startRow, startColumn, rowsOfCells) {
-  return {
-    updateRangeRequest: {
-      sheetId,
-      gridData: {
-        startRow,
-        startColumn,
-        rows: rowsOfCells.map((values) => ({
-          values: values.map((v) =>
-            (v && (v.cellValue || v.cellFormat)) ? v : { cellValue: v }
-          ),
-        })),
-      },
-    },
-  };
-}
-
-async function qqDocBatchUpdate(requests) {
-  const res = await fetch(
-    `https://docs.qq.com/openapi/spreadsheet/v3/files/${QQ_DOC.fileId}/batchUpdate`,
-    {
-      method: 'POST',
-      headers: { ...qqHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requests }),
-    }
-  );
-  const data = await res.json();
-  if (data.code && data.code !== 0) {
-    throw new Error(data.message || 'QQ Doc batchUpdate error');
-  }
-  return data;
-}
-
-// 把模板结构写进新建的工作表（结果列保持空）
-async function qqDocFillTemplate(sheetId, tpl) {
-  // 表头单元格：沿用老师的字体与字号，并加粗。
-  // 老师原本靠「白字 + 蓝底」区分表头，而 API 没有背景色，
-  // 只搬白字会导致白字白底看不见，所以改用加粗作为区分，颜色保持默认黑。
-  const headerCells = tpl.headers.map((h, i) => {
-    const f = (tpl.headerFont || [])[i] || {};
-    const textFormat = { bold: true };
-    if (f.font) textFormat.font = f.font;
-    if (f.fontSize) textFormat.fontSize = f.fontSize;
-    return { cellValue: { text: h }, cellFormat: { textFormat } };
-  });
-
-  const requests = [
-    rangeReq(sheetId, 0, 0, [[{ text: tpl.title }]]),
-    rangeReq(sheetId, tpl.headerRow, 0, [headerCells]),
-  ];
-  if (tpl.students.length) {
-    requests.push(rangeReq(
-      sheetId,
-      tpl.headerRow + 1,
-      0,
-      tpl.students.map(([no, name]) => [
-        typeof no === 'number' ? { number: no } : { text: String(no) },
-        { text: name },
-      ])
-    ));
-  }
-  await qqDocBatchUpdate(requests);
-}
-
-// 兜底模板：连一张已有表都没有时用
-const FALLBACK_TEMPLATE = {
-  title: '跳绳记录',
-  headerRow: 2,
-  headers: ['序号', '姓名', '3分钟单摇', '1分钟单摇', '30秒单摇', '三分钟单摇', '一分钟', '30秒'],
-  students: [],
-};
-
-// 取最新一张已有工作表的结构作为模板（跟随老师当前格式）
-async function qqDocReadTemplateFromLatest() {
-  const sheets = await qqDocFetchSheetsFresh();
-  const latest = sheets[sheets.length - 1];
-  if (!latest) return FALLBACK_TEMPLATE;
-  return (await qqDocReadTemplate(latest.sheetId)) || FALLBACK_TEMPLATE;
-}
-
-// 新建一张带结构的空表，返回其 sheetId
-async function qqDocCreateSheet(title, tpl) {
-  await qqDocBatchUpdate([{
-    addSheetRequest: { title, rowCount: 200, columnCount: 26 },
-  }]);
-  // 接口不回传新建表的 id，重新列一次
-  const after = await qqDocFetchSheetsFresh();
-  const created = after.find((x) => x.title === title);
-  if (!created) throw new Error('新建后未找到工作表: ' + title);
-  await qqDocFillTemplate(created.sheetId, tpl);
-  qqSheetCache = {};   // 让写入路径的缓存失效
-  return created.sheetId;
-}
-
-// GET /api/qq-doc/ensure-sheets?days=3&dryRun=1
-app.get('/api/qq-doc/ensure-sheets', async (req, res) => {
-  try {
-    if (!QQ_DOC.accessToken) {
-      return res.status(500).json({ error: 'QQ Doc access token not configured' });
-    }
-    const days = Math.min(14, Math.max(0, parseInt(req.query.days, 10) || 3));
-    const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true';
-
-    const sheets = await qqDocFetchSheetsFresh();
-    const existing = new Set(
-      sheets.map((s) => normalizeSheetTitle(s.title)).filter(Boolean)
-    );
-
-    // 从最新一张表取模板；没有可用的就用内置表头兜底
-    const tpl = (await qqDocReadTemplate(sheets[sheets.length - 1]?.sheetId)) || FALLBACK_TEMPLATE;
-
-    const created = [], skipped = [], failed = [];
-
-    for (let i = 0; i <= days; i++) {
-      const date = shanghaiDate(i);
-      const title = sheetTitleOf(date);
-      const key = normalizeSheetTitle(title);
-
-      if (existing.has(key)) { skipped.push(title); continue; }
-      if (dryRun) { created.push(title + '(dryRun)'); continue; }
-
-      try {
-        await qqDocCreateSheet(title, tpl);
-        existing.add(key);
-        created.push(title);
-        console.log(`QQ Doc 已补建工作表 ${title}（表头 ${tpl.headers.length} 列，学生 ${tpl.students.length} 人）`);
-      } catch (e) {
-        console.error('补建工作表失败:', title, e.message);
-        failed.push({ title, error: e.message });
-      }
-    }
-
-    // 新建过就要让写入路径的缓存失效
-    if (created.length && !dryRun) qqSheetCache = {};
-
-    res.json({
-      ok: true,
-      range: `${shanghaiDate(0)} ~ ${shanghaiDate(days)}`,
-      template: { from: sheets[sheets.length - 1]?.title, students: tpl.students.length },
-      created, skipped, failed,
-    });
-  } catch (err) {
-    console.error('ensure-sheets error:', err);
     res.status(500).json({ error: err.message });
   }
 });
