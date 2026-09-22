@@ -115,9 +115,8 @@
     overflow: hidden;              /* 摄像头背景不溢出圆角 */
     background: var(--card);
     border-radius: var(--radius);
-    padding: 44px 24px;
-    /* 吸收 jumpView 的剩余高度：内容不足一屏时把底部空白吃掉，
-       摄像头预览撑高时又不会把卡片压到 min-height 以下 */
+    padding: 0;                    /* 内边距在 .timer-content 上，保证蒙层铺满整卡 */
+    /* 吸收 jumpView 的剩余高度：内容不足一屏时把底部空白吃掉 */
     flex: 1 1 auto;
     min-height: min(420px, 50dvh);
     text-align: center;
@@ -593,14 +592,24 @@
   .name-modal .nm-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
 
   /* ══════════ 摄像头计数 ══════════ */
-  /* 开关行 */
+  /* 开关行：主行 + （开启后）镜头状态行 */
   .cam-toggle-row {
     background: var(--card);
     border-radius: var(--radius);
     padding: 12px 16px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    display: flex; align-items: center; gap: 10px;
+    display: flex; flex-direction: column;
   }
+  .cam-toggle-row .ct-main { display: flex; align-items: center; gap: 10px; }
+  /* 镜头信息与切换按钮收在这里，不占用计时卡空间 */
+  .cam-status-row {
+    display: none; align-items: center; gap: 8px;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--muted);
+  }
+  .cam-toggle-row.cam-on .cam-status-row { display: flex; }
+  .cam-status-row .cp-state { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cam-toggle-row .ct-icon { font-size: 18px; flex-shrink: 0; }
   .cam-toggle-row .ct-label { flex: 1; font-size: 14px; font-weight: 600; }
   .cam-toggle-row .ct-hint { font-size: 11px; color: var(--muted); font-weight: 400; }
@@ -640,10 +649,12 @@
   .cam-bg.live .cam-preview-msg { display: none; }
   .cam-preview-msg .big { font-size: 32px; }
 
-  /* 计时内容层：摄像头开启时变成磨砂玻璃盖在画面上。
-     透明度取 0.7 —— 太透会让深色数字压在暗画面上看不清 */
+  /* 计时内容层：摄像头开启时变成磨砂玻璃。
+     内边距放在这一层（卡片本身 padding: 0），蒙层才能铺满整张卡，
+     否则会被卡片的内边距裁出一圈没模糊的边。 */
   .timer-content {
     position: relative; z-index: 2; width: 100%;
+    padding: 44px 24px;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 22px; flex: 1;
@@ -651,20 +662,16 @@
   .timer-card.cam-on .timer-content {
     backdrop-filter: blur(14px) saturate(1.15);
     -webkit-backdrop-filter: blur(14px) saturate(1.15);
-    background: rgba(255,255,255,0.70);
+    background: rgba(255,255,255,0.52);
   }
-
-  /* 摄像头状态条：贴在卡片底部 */
-  .cam-preview-bar {
-    display: none; align-items: center; gap: 8px;
-    position: relative; z-index: 2;
-    flex-shrink: 0; width: 100%;
-    margin-top: 18px; padding-top: 12px;
-    font-size: 12px; color: var(--muted);
-    border-top: 1px solid rgba(0,0,0,0.08);
+  /* 蒙层更透之后，靠白色描边把深色数字托起来，保证可读 */
+  .timer-card.cam-on .timer-display {
+    text-shadow: 0 1px 10px rgba(255,255,255,0.95), 0 0 28px rgba(255,255,255,0.8);
   }
-  .timer-card.cam-on .cam-preview-bar { display: flex; }
-  .cam-preview-bar .cp-state { flex: 1; }
+  .timer-card.cam-on .timer-label {
+    color: #4b5563;
+    text-shadow: 0 1px 6px rgba(255,255,255,0.9);
+  }
   .chip-btn {
     background: var(--bg); border: 1px solid var(--border); color: var(--text);
     border-radius: 9px; padding: 7px 12px; font-size: 12px; font-weight: 600;
@@ -803,7 +810,8 @@
     .name-bar select { font-size: 17px; padding: 10px 14px; max-width: 260px; }
     .name-bar .name-status { font-size: 14px; }
     .main { padding: 24px 32px; max-width: 700px; margin: 0 auto; width: 100%; }
-    .timer-card { padding: 56px 36px; border-radius: 20px; min-height: 500px; }
+    .timer-card { border-radius: 20px; min-height: 500px; }
+    .timer-content { padding: 56px 36px; }
     .timer-display { font-size: 170px; }
     .timer-label { font-size: 19px; }
     .start-btn { width: 164px; height: 164px; font-size: 25px; }
@@ -873,7 +881,8 @@
     .switch { width: 54px; height: 32px; border-radius: 16px; }
     .switch::after { width: 26px; height: 26px; }
     .switch.on::after { transform: translateX(22px); }
-    .cam-preview-bar { font-size: 14px; margin-top: 22px; padding-top: 14px; }
+    .cam-status-row { font-size: 14px; margin-top: 12px; padding-top: 12px; }
+    .cam-toggle-row .ct-main { gap: 12px; }
     .chip-btn { font-size: 14px; padding: 9px 16px; }
     .stage-count .sc-num { font-size: 72px; }
     .stage-count .sc-unit { font-size: 24px; }
@@ -921,14 +930,21 @@
 <div class="main">
   <!-- === Jump View (timer + metronome + counter + history) === -->
   <div id="jumpView">
-    <!-- 摄像头计数开关 -->
-    <div class="cam-toggle-row">
-      <span class="ct-icon">🎥</span>
-      <span class="ct-label">摄像头计数<br><span class="ct-hint">自动识别个数，结束后确认</span></span>
-      <button class="switch" id="camSwitch"></button>
+    <!-- 摄像头计数开关（开启后卡片内追加镜头信息与切换按钮） -->
+    <div class="cam-toggle-row" id="camToggleRow">
+      <div class="ct-main">
+        <span class="ct-icon">🎥</span>
+        <span class="ct-label">摄像头计数<br><span class="ct-hint">自动识别个数，结束后确认</span></span>
+        <button class="switch" id="camSwitch"></button>
+      </div>
+      <div class="cam-status-row" id="camStatusRow">
+        <span class="cp-state" id="camPreviewState">—</span>
+        <button class="chip-btn" id="camSwitchBtn" disabled>🔄 切换</button>
+        <button class="chip-btn" id="camRetryBtn" style="display:none">重试</button>
+      </div>
     </div>
 
-    <!-- 取景预览已并入计时卡：摄像头画面作卡片背景，计时内容为磨砂玻璃层 -->
+    <!-- 摄像头画面作计时卡背景，计时内容为磨砂玻璃层 -->
     <div class="timer-card" id="timerCard">
       <div class="cam-bg" id="camBg">
         <video id="camVideo" playsinline muted autoplay></video>
@@ -953,12 +969,6 @@
           <button class="start-btn idle" id="startBtn">▶️ 开始</button>
           <button class="reset-btn" id="resetBtn" style="display:none">复位</button>
         </div>
-      </div>
-
-      <div class="cam-preview-bar" id="camPreviewBar">
-        <span class="cp-state" id="camPreviewState">—</span>
-        <button class="chip-btn" id="camSwitchBtn" disabled>🔄 切换</button>
-        <button class="chip-btn" id="camRetryBtn" style="display:none">重试</button>
       </div>
     </div>
 
@@ -2198,6 +2208,7 @@ document.getElementById('aboutOverlay').addEventListener('click', (e) => {
 // ══════════════════════════════════════════════════════
 const camSwitch = document.getElementById('camSwitch');
 const timerCard = document.getElementById('timerCard');
+const camToggleRow = document.getElementById('camToggleRow');
 const camBg = document.getElementById('camBg');
 const camPreviewText = document.getElementById('camPreviewText');
 const camPreviewState = document.getElementById('camPreviewState');
@@ -2230,7 +2241,11 @@ function isFrontCamLabel(label) {
 let camEnabled = localStorage.getItem('jumprope_camera_on') === 'true';
 let camStream = null;
 let camReady = false;
-let camFacing = 'user';        // 设备架起来正对孩子，默认前置
+// 默认前置（设备架起来正对孩子），用户切换过就记住其选择。
+// 以 deviceId 为主：朝向在个别机型上会被误报（前置报成 environment），
+// 若按朝向持久化，下次就会真的开成后置。facing 仅作设备不可用时的兜底。
+let camFacing = localStorage.getItem('jumprope_cam_facing') || 'user';
+let camSavedDeviceId = localStorage.getItem('jumprope_cam_device') || '';
 let camIsFront = true;
 let camDevices = [];
 let camDeviceIndex = -1;
@@ -2341,10 +2356,12 @@ async function attachStream(videoEl) {
 async function openCamStream(deviceId) {
   if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; camReady = false; }
 
-  // 未指定设备时优先按标签挑出前置摄像头。
-  // 只靠 facingMode 在部分机型（尤其多摄 iPad）上并不可靠，
-  // 会拿到后置；这里显式找前置设备，找不到再退回 facingMode。
+  // 选设备优先级：调用方指定 > 用户上次选的 > 按标签找前置 > facingMode。
+  // 只靠 facingMode 在部分机型（尤其多摄 iPad）上不可靠，会拿到后置。
   let useId = deviceId;
+  if (!useId && camSavedDeviceId && camDevices.some(d => d.deviceId === camSavedDeviceId)) {
+    useId = camSavedDeviceId;
+  }
   if (!useId && camFacing === 'user' && camDevices.length) {
     const front = camDevices.find(d => isFrontCamLabel(d.label));
     if (front) useId = front.deviceId;
@@ -2364,9 +2381,12 @@ async function openCamStream(deviceId) {
   camIsFront = st.facingMode
     ? st.facingMode === 'user'
     : isFrontCamLabel(track.label);
-  // 以实际打开的结果为准回写朝向，保证后续回退路径一致
+  // 以实际打开的结果为准回写朝向并记住，保证下次沿用用户的选择
   camFacing = camIsFront ? 'user' : 'environment';
+  localStorage.setItem('jumprope_cam_facing', camFacing);
   if (st.deviceId) {
+    camSavedDeviceId = st.deviceId;
+    localStorage.setItem('jumprope_cam_device', camSavedDeviceId);
     const i = camDevices.findIndex(d => d.deviceId === st.deviceId);
     if (i >= 0) camDeviceIndex = i;
   }
@@ -2463,9 +2483,12 @@ function closeCamera() {
   camPreviewState.textContent = '—';
 }
 
-// 卡片切换到「摄像头背景」形态：显示画面层 + 状态条，内容层转为磨砂玻璃
+// 摄像头开启形态：
+//   开关卡 -> 展开镜头信息与切换按钮
+//   计时卡 -> 显示画面层，内容层转为磨砂玻璃
 function setCamOn(on) {
   timerCard.classList.toggle('cam-on', on);
+  camToggleRow.classList.toggle('cam-on', on);
   if (!on) return;
   // 卡片尺寸变化后再算一次 canvas 位置
   requestAnimationFrame(layoutPreviewCanvas);
