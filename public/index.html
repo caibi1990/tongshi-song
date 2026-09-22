@@ -8,11 +8,16 @@
   <title>明悦三班</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    /* 背景放 html：它会传播到整个画布，即使 body 因 svh 比可视区矮也不会露底 */
+    html {
+      background: linear-gradient(160deg, #667eea 0%, #764ba2 100%);
+    }
     body {
       font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
-      background: linear-gradient(160deg, #667eea 0%, #764ba2 100%);
+      /* svh = 最小视口（工具栏展开时），不随 Safari 工具栏动画变化。
+         用 dvh 会让居中的内容跟着工具栏来回重排，就是那个"跳动"。 */
       min-height: 100vh;
-      min-height: 100dvh;
+      min-height: 100svh;
       display: flex;
       flex-direction: column;
       align-items: center;
