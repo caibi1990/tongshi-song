@@ -1115,6 +1115,9 @@ const TASKS = {
   30:  { label: '30秒跳绳', alerts: [10] },
 };
 
+// 剩余秒数 -> 预生成语音片段的 key（见 public/audio/jump/）
+const ALERT_VOICE = { 120: 'left120', 60: 'left60', 30: 'left30', 10: 'left10' };
+
 let currentTask = 180;
 let currentDate = todayStr();
 let timerInterval = null;
@@ -1222,31 +1225,147 @@ function playFinishSound() {
   setTimeout(() => playBeep(1568, 0.4), 300); // G6
 }
 
-function speakAlert(text) {
-  try {
-    if ('speechSynthesis' in window) {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'zh-CN';
-      u.rate = 1.1;
-      u.volume = 0.8;
-      speechSynthesis.speak(u);
-    }
-  } catch(e) {}
+// ══════════════════════════════════════════════════════
+// 语音播报
+//   发音人与作业页一致（Edge TTS / zh-CN-XiaoxiaoNeural）。
+//   固定语句 = 构建期预生成的 mp3（public/audio/jump/），
+//   解码成 AudioBuffer 后走同一个 AudioContext 播放 —— 与提示音、
+//   节拍器共用一条管线，也就一并享受摄像头抢占音频会话后的自愈逻辑。
+//   动态语句（「时间到，你跳了 N 个」）由服务端 /api/tts-say 实时合成。
+//   两者都失败时回退到浏览器内置 TTS，保证不会彻底没声音。
+// ══════════════════════════════════════════════════════
+const VOICE_CLIP_KEYS = [
+  'cd5', 'cd4', 'cd3', 'cd2', 'cd1', 'go',
+  'left120', 'left60', 'left30', 'left10',
+  'timeUpManual', 'needInput', 'recorded', 'stopFirst', 'modelFail',
+];
+const VOICE_FALLBACK_TEXT = {
+  cd5: '五', cd4: '四', cd3: '三', cd2: '二', cd1: '一', go: '开始',
+  left120: '还剩两分钟', left60: '还剩一分钟',
+  left30: '还剩三十秒', left10: '还剩十秒',
+  timeUpManual: '时间到，请输入跳绳个数',
+  needInput: '请输入跳绳个数',
+  recorded: '记录成功',
+  stopFirst: '请先停止计时再切换',
+  modelFail: '识别模型加载失败，已切换为手动计数',
+};
+
+const voiceBuffers = new Map();   // key -> { buffer, offset, duration }
+let voiceReady = false;
+let voiceLoading = null;
+let voiceSource = null;
+
+// 去掉 TTS 自带的前后静音。
+// 倒计时 1 秒一拍，片段本身已近 0.9s，若不裁掉前导静音，
+// 数字已经变了人声才响，节奏会糊。
+function analyzeVoiceBuffer(buf) {
+  const data = buf.getChannelData(0);
+  const n = data.length;
+  let peak = 0;
+  for (let i = 0; i < n; i++) {
+    const v = Math.abs(data[i]);
+    if (v > peak) peak = v;
+  }
+  const thr = Math.max(0.015, peak * 0.05);
+  let start = 0;
+  while (start < n && Math.abs(data[start]) < thr) start++;
+  let end = n - 1;
+  while (end > start && Math.abs(data[end]) < thr) end--;
+  // 前后各留 20ms 余量，避免削掉字头字尾
+  const pad = Math.round(buf.sampleRate * 0.02);
+  start = Math.max(0, start - pad);
+  end = Math.min(n - 1, end + pad);
+  return {
+    buffer: buf,
+    offset: start / buf.sampleRate,
+    duration: Math.max(0.05, (end - start + 1) / buf.sampleRate),
+  };
 }
 
-// 倒计时播报：间隔只有 1 秒，必须保证不堆积（否则越读越慢）
-// cancel 只在开头做一次，避免 iOS 上 cancel+speak 同帧导致不发声
-const CN_NUM = { 5: '五', 4: '四', 3: '三', 2: '二', 1: '一' };
-function speakCountdown(text, cancelFirst = false) {
+function loadVoiceClips() {
+  if (voiceReady) return Promise.resolve(true);
+  if (voiceLoading) return voiceLoading;
+  voiceLoading = (async () => {
+    const ctx = getAudioCtx();
+    // 串行解码：一次性并发十几个 decodeAudioData 会把浏览器的音频解码器压住
+    // （实测并发 15 个之后，后续解码会一直挂起不再返回），
+    // 串行既稳定，总量也才 ~180KB，只多几百毫秒
+    for (const key of VOICE_CLIP_KEYS) {
+      try {
+        const res = await fetch(`/audio/jump/${key}.mp3`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const raw = await res.arrayBuffer();
+        voiceBuffers.set(key, analyzeVoiceBuffer(await ctx.decodeAudioData(raw)));
+      } catch (e) {
+        // 单个片段失败不影响其余；播放时该条回退系统 TTS
+        console.warn('语音片段加载失败:', key, e.message);
+      }
+    }
+    voiceReady = voiceBuffers.size > 0;
+    return voiceReady;
+  })();
+  return voiceLoading;
+}
+
+// 浏览器内置 TTS —— 仅作兜底
+function sysSpeak(text) {
   try {
-    if (!('speechSynthesis' in window)) return;
-    if (cancelFirst) speechSynthesis.cancel();
+    if (!text || !('speechSynthesis' in window)) return;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'zh-CN';
-    u.rate = 1.25;
-    u.volume = 0.95;
+    u.rate = 1.15;
+    u.volume = 0.9;
     speechSynthesis.speak(u);
-  } catch(e) {}
+  } catch (e) {}
+}
+
+function playEntry(entry, interrupt) {
+  const ctx = getAudioCtx();
+  if (ctx.state !== 'running') ctx.resume().catch(() => {});
+  if (interrupt && voiceSource) {
+    try { voiceSource.stop(); } catch (e) {}
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = entry.buffer;
+  src.connect(ctx.destination);
+  src.start(0, entry.offset, entry.duration);
+  voiceSource = src;
+}
+
+// 播放预生成片段。interrupt=true 用于倒计时，避免上一声还没完就叠上来
+function playVoice(key, interrupt = false) {
+  const entry = voiceBuffers.get(key);
+  if (!entry) { sysSpeak(VOICE_FALLBACK_TEXT[key] || ''); return; }
+  try {
+    playEntry(entry, interrupt);
+  } catch (e) {
+    sysSpeak(VOICE_FALLBACK_TEXT[key] || '');
+  }
+}
+
+// 动态语句：服务端实时合成（如「时间到，你跳了 128 个」）
+// 这里刻意不用 Web Audio 解码，而是走 <audio> 元素 —— 与作业页同一路子：
+//   1) 不占用音频解码器。固定片段已经解了 15 个，实测紧接着再解码会挂起
+//   2) 结束播报对时序要求低（早/晚几十毫秒无感），无需静音裁剪
+//   3) 服务端带了 Cache-Control，同一句重复调用直接命中 HTTP 缓存
+let dynVoiceEl = null;
+
+async function speakDynamic(text) {
+  const url = `/api/tts-say?text=${encodeURIComponent(text)}&rate=1.0`;
+  try {
+    // 摄像头可能仍占着音频会话，先唤醒一次再播
+    reviveAudio();
+    if (!dynVoiceEl) {
+      dynVoiceEl = new Audio();
+      dynVoiceEl.preload = 'auto';
+    }
+    dynVoiceEl.pause();
+    dynVoiceEl.currentTime = 0;
+    dynVoiceEl.src = url;
+    await dynVoiceEl.play();
+  } catch (e) {
+    sysSpeak(text);   // 服务端不可用或播放被拒时兜底
+  }
 }
 
 function vibrate(pattern) {
@@ -1345,7 +1464,7 @@ function startCountdownThenStart() {
   countdownScreen.classList.add('show');
   getAudioCtx().resume().catch(()=>{});
   reviveAudio();               // 刚取流可能抢走了音频会话
-  speakCountdown(CN_NUM[count], true);   // 先清掉残留语音，再读「五」
+  playVoice('cd' + count, true);   // 打断上一声，保证 1 秒一拍的节奏
   playBeep(440, 0.15);
 
   countdownInterval = setInterval(() => {
@@ -1356,7 +1475,7 @@ function startCountdownThenStart() {
       countdownNum.style.animation = 'none';
       void countdownNum.offsetWidth;
       countdownNum.style.animation = 'cdPop .7s ease-out';
-      speakCountdown(CN_NUM[count]);
+      playVoice('cd' + count, true);
       playBeep(440, 0.15);
     } else {
       finishCountdown();
@@ -1371,7 +1490,7 @@ function finishCountdown() {
   isCountingDown = false;
   countdownScreen.classList.remove('show');
   playBeep(880, 0.3);
-  speakCountdown('开始');
+  playVoice('go');
   actuallyStartTimer();
 }
 
@@ -1441,7 +1560,6 @@ function actuallyStartTimer(isResume = false) {
     stagePrepared = false;
   }
 
-  const taskConfig = TASKS[currentTask];
   const alertedSet = new Set();
 
   timerInterval = setInterval(() => {
@@ -1449,15 +1567,11 @@ function actuallyStartTimer(isResume = false) {
     timerDisplay.textContent = formatTime(remainingSeconds);
     updateStageTimer();
 
-    // Voice alerts
-    if (taskConfig.alerts.includes(remainingSeconds) && !alertedSet.has(remainingSeconds)) {
+    // 剩余时间提醒：查表播预生成片段，无运行时合成延迟
+    const alertKey = ALERT_VOICE[remainingSeconds];
+    if (alertKey && !alertedSet.has(remainingSeconds)) {
       alertedSet.add(remainingSeconds);
-      const mins = Math.floor(remainingSeconds / 60);
-      const secs = remainingSeconds % 60;
-      let msg = '';
-      if (mins > 0) msg = `还剩${mins}分${secs > 0 ? secs + '秒' : ''}`;
-      else msg = `还剩${secs}秒`;
-      speakAlert(msg);
+      playVoice(alertKey);
       playBeep(660, 0.15);
     }
 
@@ -1525,7 +1639,7 @@ function finishTimer() {
   // ── 手动模式：弹框键盘录入 ──
   timerLabel.textContent = '时间到！请输入跳绳个数';
   jumpCount = 0;
-  speakAlert('时间到，请输入跳绳个数');
+  playVoice('timeUpManual');
   openNumModal({ action: 'submit', title: '你跳了多少个？', value: '' });
 }
 
@@ -1543,7 +1657,7 @@ startBtn.addEventListener('click', async () => {
     startBtn.disabled = false;
     timerLabel.textContent = prevLabel;
     if (!ok) {
-      speakAlert('识别模型加载失败，已切换为手动计数');
+      playVoice('modelFail');
       setCamEnabled(false);
       return;
     }
@@ -1609,7 +1723,7 @@ numModal.addEventListener('click', (e) => {
 // 抽成函数：手动模式的「提交记录」与摄像头模式的「确认提交」共用同一条链路
 function submitRecord() {
   if (jumpCount <= 0) {
-    speakAlert('请输入跳绳个数');
+    playVoice('needInput');
     return false;
   }
   const records = loadRecords(currentTask, currentDate);
@@ -1624,7 +1738,7 @@ function submitRecord() {
   renderBestRecords();
   if (activeView === 'calendar') renderCalHistory();
   playBeep(523, 0.2); // C5 confirm
-  speakAlert(`记录成功，${jumpCount}个`);
+  playVoice('recorded');
 
   // Sync to QQ Doc (腾讯文档) — fire and forget
   syncToQQDoc(currentTask, jumpCount, currentDate);
@@ -1881,7 +1995,7 @@ document.querySelectorAll('.tab-item').forEach(tab => {
     // Calendar tab
     if (tab.dataset.view === 'calendar') {
       if (isRunning || isCountingDown) {
-        speakAlert('请先停止计时再切换');
+        playVoice('stopFirst');
         return;
       }
       document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
@@ -1892,7 +2006,7 @@ document.querySelectorAll('.tab-item').forEach(tab => {
 
     // Jump tabs
     if (isRunning || isCountingDown) {
-      speakAlert('请先停止计时再切换');
+      playVoice('stopFirst');
       return;
     }
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
@@ -2588,7 +2702,7 @@ function openConfirmModal() {
   cmSource.textContent = `摄像头自动识别 · ${camIsFront ? '前置' : '后置'}镜头`;
   confirmModal.classList.add('show');
   // 延后播报，避免与结束提示音重叠
-  setTimeout(() => speakAlert(`时间到，你跳了 ${jumpCount} 个`), 450);
+  setTimeout(() => speakDynamic(`时间到，你跳了 ${jumpCount} 个`), 450);
 }
 
 function refreshConfirmValue() {
@@ -2598,7 +2712,7 @@ function refreshConfirmValue() {
 // ── 事件绑定 ──
 camSwitch.addEventListener('click', () => {
   if (isRunning || isCountingDown) {
-    speakAlert('请先停止计时再切换');
+    playVoice('stopFirst');
     return;
   }
   setCamEnabled(!camEnabled);
@@ -2675,6 +2789,7 @@ renderCalendar();
 renderBestRecords();
 renderHistory();
 loadQQNames();
+loadVoiceClips();   // 预加载固定语音片段，避免倒计时时才开始下载
 
 // iOS audio unlock
 (function() {

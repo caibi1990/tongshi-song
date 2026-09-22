@@ -344,6 +344,45 @@ app.get('/api/tts', async (req, res) => {
   }
 });
 
+// --- API: GET /api/tts-say?text=...&rate=1.0 ---
+// 跳绳页的「动态语音」按需合成（如「时间到，你跳了 128 个」）。
+// 固定语句在构建期已预生成为 public/audio/jump/*.mp3，不走这里。
+const sayCache = new Map();
+const SAY_CACHE_MAX = 300;
+
+app.get('/api/tts-say', async (req, res) => {
+  try {
+    const text = String(req.query.text || '').trim().slice(0, 120);
+    const rate = Math.min(1.6, Math.max(0.6, parseFloat(req.query.rate) || 1.0));
+    if (!text) return res.status(400).json({ error: 'text is required' });
+
+    const key = `${rate}|${text}`;
+    if (sayCache.has(key)) {
+      const hit = sayCache.get(key);
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Content-Length', hit.length);
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+      return res.send(hit);
+    }
+
+    const audio = await generateAudio(text, rate);
+
+    // LRU：超限时淘汰最早写入的一条
+    if (sayCache.size >= SAY_CACHE_MAX) {
+      sayCache.delete(sayCache.keys().next().value);
+    }
+    sayCache.set(key, audio);
+
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', audio.length);
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+    res.send(audio);
+  } catch (err) {
+    console.error('tts-say error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- QQ Docs (腾讯文档) Integration ---
 const QQ_DOC = {
   fileId: 'DREFoVWxyTWRqanVZ',
