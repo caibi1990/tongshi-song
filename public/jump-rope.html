@@ -1030,10 +1030,32 @@ document.getElementById('submitBtn').addEventListener('click', () => {
   playBeep(523, 0.2); // C5 confirm
   speakAlert(`记录成功，${jumpCount}个`);
 
+  // Sync to QQ Doc (腾讯文档) — fire and forget
+  syncToQQDoc(currentTask, jumpCount, currentDate);
+
   // Reset for next round
   counterCard.classList.remove('show');
   resetTimer();
 });
+
+// --- QQ Doc Sync ---
+async function syncToQQDoc(taskSec, count, dateStr) {
+  try {
+    const res = await fetch('/api/qq-doc/write-jump', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskSec, count, dateStr }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      console.log(`✅ QQ Doc synced: ${taskSec}s = ${count}, sheet=${data.sheetTitle}`);
+    } else {
+      console.warn('⚠️ QQ Doc sync failed:', data.error);
+    }
+  } catch (e) {
+    console.warn('⚠️ QQ Doc sync error:', e.message);
+  }
+}
 
 // --- History ---
 function renderHistory() {

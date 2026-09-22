@@ -344,6 +344,123 @@ app.get('/api/tts', async (req, res) => {
   }
 });
 
+// --- QQ Docs (腾讯文档) Integration ---
+const QQ_DOC = {
+  fileId: 'DREFoVWxyTWRqanVZ',
+  clientId: process.env.QQ_DOC_CLIENT_ID || '542a94f67e894e1cbc6c8eb2fcf5a5d8',
+  accessToken: process.env.QQ_DOC_ACCESS_TOKEN || '',
+  openId: process.env.QQ_DOC_OPEN_ID || 'a263363ce9d746738a5393d90a809644',
+  targetName: '彭泽恩',
+  targetRow: 20, // 0-based row index in each sheet
+};
+
+// Cache: sheet title -> sheetId mapping
+let qqSheetCache = {};
+
+async function qqDocGetSheets() {
+  if (Object.keys(qqSheetCache).length > 0) return qqSheetCache;
+  const res = await fetch(
+    `https://docs.qq.com/openapi/spreadsheet/v3/files/${QQ_DOC.fileId}`,
+    {
+      headers: {
+        'Access-Token': QQ_DOC.accessToken,
+        'Client-Id': QQ_DOC.clientId,
+        'Open-Id': QQ_DOC.openId,
+      },
+    }
+  );
+  const data = await res.json();
+  const props = data.properties || [];
+  for (const p of props) {
+    qqSheetCache[p.title] = p.sheetId;
+  }
+  console.log('QQ Doc sheets cached:', Object.keys(qqSheetCache));
+  return qqSheetCache;
+}
+
+// Find or create sheet for a given date (format: "M.D" e.g. "9.20")
+async function qqDocFindSheet(dateStr) {
+  // dateStr is YYYY-MM-DD, convert to M.D format
+  const [, m, d] = dateStr.split('-').map(Number);
+  const sheetTitle = `${m}.${d}`;
+  const sheets = await qqDocGetSheets();
+  return { sheetId: sheets[sheetTitle], sheetTitle };
+}
+
+// Write jump rope record to QQ Doc
+// taskSec: 180/60/30, count: number, dateStr: YYYY-MM-DD
+app.post('/api/qq-doc/write-jump', async (req, res) => {
+  try {
+    const { taskSec, count, dateStr } = req.body;
+    if (!taskSec || !count || !dateStr) {
+      return res.status(400).json({ error: 'Missing taskSec, count, or dateStr' });
+    }
+    if (!QQ_DOC.accessToken) {
+      return res.status(500).json({ error: 'QQ Doc access token not configured' });
+    }
+
+    const { sheetId, sheetTitle } = await qqDocFindSheet(dateStr);
+    if (!sheetId) {
+      return res.status(404).json({ error: `Sheet "${sheetTitle}" not found in spreadsheet` });
+    }
+
+    // Map taskSec to column index (0-based): 180->col2, 60->col3, 30->col4
+    const colMap = { 180: 2, 60: 3, 30: 4 };
+    const col = colMap[taskSec];
+    if (col === undefined) {
+      return res.status(400).json({ error: `Invalid taskSec: ${taskSec}` });
+    }
+
+    // For 3min (col2), write ✓ mark; for others write the count number
+    const cellValue = taskSec === 180
+      ? { text: '✓' }
+      : { number: count };
+
+    // Build updateRangeRequest
+    const body = {
+      requests: [{
+        updateRangeRequest: {
+          sheetId,
+          gridData: {
+            startRow: QQ_DOC.targetRow,
+            startColumn: col,
+            rows: [{
+              values: [{
+                cellValue,
+              }],
+            }],
+          },
+        },
+      }],
+    };
+
+    const apiRes = await fetch(
+      `https://docs.qq.com/openapi/spreadsheet/v3/files/${QQ_DOC.fileId}/batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          'Access-Token': QQ_DOC.accessToken,
+          'Client-Id': QQ_DOC.clientId,
+          'Open-Id': QQ_DOC.openId,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    );
+    const result = await apiRes.json();
+
+    if (result.code && result.code !== 0) {
+      console.error('QQ Doc write error:', result);
+      return res.status(500).json({ error: result.message || 'QQ Doc API error' });
+    }
+
+    res.json({ ok: true, sheetTitle, row: QQ_DOC.targetRow, col, value: cellValue });
+  } catch (err) {
+    console.error('QQ Doc write error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Static files ---
 app.use(express.static(path.join(__dirname, 'public')));
 
