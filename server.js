@@ -385,7 +385,7 @@ app.get('/api/tts-say', async (req, res) => {
 
 // --- QQ Docs (腾讯文档) Integration ---
 const QQ_DOC = {
-  fileId: 'DREFoVWxyTWRqanVZ',
+  fileId: 'DRExkbkRRbEZxUWRi',
   clientId: process.env.QQ_DOC_CLIENT_ID || '542a94f67e894e1cbc6c8eb2fcf5a5d8',
   accessToken: process.env.QQ_DOC_ACCESS_TOKEN || '',
   openId: process.env.QQ_DOC_OPEN_ID || 'a263363ce9d746738a5393d90a809644',
