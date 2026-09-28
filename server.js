@@ -477,21 +477,6 @@ app.get('/api/qq-doc/names', async (req, res) => {
   }
 });
 
-// TEMP DEBUG — 确认当前部署实际指向的文档 + 工作表列表，验证完可删除
-app.get('/api/qq-doc/debug', async (req, res) => {
-  try {
-    qqSheetCache = {}; // 强制刷新，避免读到旧缓存
-    const sheets = await qqDocGetSheets();
-    res.json({
-      fileId: QQ_DOC.fileId,
-      hasToken: !!QQ_DOC.accessToken,
-      sheetTitles: Object.keys(sheets),
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Write jump rope record to QQ Doc
 // taskSec: 180/60/30, count: number, dateStr: YYYY-MM-DD, targetRow: number (0-based)
 app.post('/api/qq-doc/write-jump', async (req, res) => {
