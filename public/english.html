@@ -478,7 +478,7 @@ const RewardSys = (()=>{
 // ============================================================
 const Router = (()=>{
   const main=document.getElementById('main');
-  let state={ view:'intro', unit:null, moduleKey:null };
+  let state={ view:'units', unit:null, moduleKey:null };
 
   function go(view, opts){
     state=Object.assign({view}, opts||{});
@@ -525,7 +525,7 @@ const Router = (()=>{
     const v=state.view;
     if(v==='player') go('unitLearn',{unit:state.unit});
     else if(v==='unitLearn'||v==='wordlist') go('units');
-    else if(v==='units') go('intro');
+    else if(v==='units') location.href='/';  // 单元页是顶层，返回站点首页
   }
   return { go, back, advanceNext, openModule, get state(){return state;} };
 })();
@@ -837,9 +837,9 @@ const UI = (()=>{
   // 音频加载失败友好提示（音频还没放进服务器时）
   Audio_.el.addEventListener('error',()=>{ UI.toast('这节音频还没准备好，请稍后再试 🙏'); });
 
-  // 入口：首次走引导，否则直接单元页
-  if(Store.data.introDone){ Progress.startSession(); Router.go('units'); }
-  else Router.go('intro');
+  // 入口：直接进单元选择页，不走引导过渡页
+  Progress.startSession();
+  Router.go('units');
 
   // Service Worker
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
