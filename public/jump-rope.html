@@ -1869,6 +1869,19 @@ let qqTargetName = '';
 const nameSelect = document.getElementById('nameSelect');
 const nameStatus = document.getElementById('nameStatus');
 
+// 动态更新「打开腾讯文档补录」链接 —— 跟随后台配置的最新文档，
+// 这样体育老师换了文档后台一改，这里的补录入口也自动指向新文档。
+async function updateDocLink() {
+  try {
+    const res = await fetch('/api/qq-doc/public-url');
+    const data = await res.json();
+    if (data.docUrl) {
+      const el = document.getElementById('sfOpen');
+      if (el) el.href = data.docUrl;
+    }
+  } catch (e) { /* 失败就保留 HTML 里的 fallback 链接 */ }
+}
+
 async function loadQQNames() {
   try {
     const res = await fetch('/api/qq-doc/names');
@@ -3019,6 +3032,7 @@ renderCalendar();
 renderBestRecords();
 renderHistory();
 loadQQNames();
+updateDocLink();   // 让补录链接跟随后台最新文档配置
 loadVoiceClips();   // 预加载固定语音片段，避免倒计时时才开始下载
 
 // ── 注册 Service Worker ──

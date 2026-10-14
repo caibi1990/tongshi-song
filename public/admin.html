@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>后台管理 · 腾讯文档配置</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--bg:#F5F6F8;--card:#fff;--text:#2D2D2D;--sub:#8B8B8B;--pri:#4A98F8;--pri-d:#2F7BD6;--ok:#14CCAD;--ok-l:#E3F9F4;--ok-d:#0E9E86;--danger:#EF5350;--danger-l:#FDECEC;--warn:#F5A623;--warn-l:#FFF4E0;--r:14px;--shadow:0 2px 16px rgba(0,0,0,.07)}
+html,body{height:100%;font-family:-apple-system,"PingFang SC","Helvetica Neue",sans-serif;background:var(--bg);color:var(--text);font-size:16px}
+body{display:flex;flex-direction:column;align-items:center;min-height:100%;padding:20px 16px 60px;padding-top:max(20px,env(safe-area-inset-top))}
+.wrap{width:100%;max-width:520px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.top a.back{color:var(--sub);text-decoration:none;font-size:14px}
+.top h1{font-size:20px;font-weight:700;flex:1}
+.card{background:var(--card);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+.card h2{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+label{display:block;font-size:13px;color:var(--sub);margin:12px 0 6px}
+input[type=text],input[type=password],textarea{width:100%;padding:12px 14px;border:1.5px solid #E2E4E8;border-radius:10px;font-size:15px;font-family:inherit;color:var(--text);background:#fff;transition:border-color .15s}
+input:focus,textarea:focus{outline:none;border-color:var(--pri)}
+textarea{resize:vertical;min-height:72px;line-height:1.5;word-break:break-all}
+.hint{font-size:12px;color:var(--sub);margin-top:5px;line-height:1.5}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:13px 20px;border-radius:10px;font-size:15px;font-weight:600;border:none;cursor:pointer;transition:all .15s;min-height:48px}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--pri);color:#fff}
+.btn-ok{background:var(--ok);color:#fff}
+.btn-ghost{background:#F0F2F5;color:var(--text)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-row{display:flex;gap:10px;margin-top:18px}
+.btn-row .btn{flex:1}
+.status{display:flex;align-items:center;gap:8px;font-size:14px;padding:10px 12px;border-radius:10px;margin-bottom:4px}
+.status.ok{background:var(--ok-l);color:var(--ok-d)}
+.status.warn{background:var(--warn-l);color:#B57A10}
+.status.err{background:var(--danger-l);color:var(--danger)}
+.kv{font-size:13px;color:var(--sub);margin:6px 0;word-break:break-all}
+.kv b{color:var(--text);font-weight:600}
+.doclink{display:inline-block;margin-top:4px;color:var(--pri-d);font-size:13px;text-decoration:none;word-break:break-all}
+.sheets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sheets .tag{background:var(--ok-l);color:var(--ok-d);font-size:12px;padding:3px 10px;border-radius:12px}
+.adv-toggle{font-size:13px;color:var(--pri-d);cursor:pointer;margin-top:16px;display:inline-block;text-decoration:underline;text-underline-offset:2px}
+.adv{display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #E2E4E8}
+.adv.show{display:block}
+.toast{position:fixed;left:50%;top:70px;transform:translateX(-50%) translateY(-20px);background:rgba(45,45,45,.95);color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;z-index:200;opacity:0;transition:all .3s;pointer-events:none;max-width:88%;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.hidden{display:none !important}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="/">‹ 返回首页</a>
+    <h1>⚙️ 腾讯文档配置</h1>
+  </div>
+
+  <!-- 登录卡 -->
+  <div class="card" id="loginCard">
+    <h2>🔐 管理员登录</h2>
+    <label>管理口令</label>
+    <input type="password" id="adminKey" placeholder="请输入口令" autocomplete="current-password">
+    <div class="hint">默认口令 admin888（建议在 Sealos 环境变量 ADMIN_KEY 里改掉）</div>
+    <div class="btn-row"><button class="btn btn-primary" id="loginBtn">登录</button></div>
+  </div>
+
+  <!-- 配置卡（登录后显示） -->
+  <div class="card hidden" id="configCard">
+    <h2>📄 当前跳绳记录文档</h2>
+    <div id="curStatus"></div>
+    <div class="kv">文档 ID：<b id="curFileId">—</b></div>
+    <div class="kv">授权 Token：<b id="curToken">—</b></div>
+    <a class="doclink" id="curDocLink" href="#" target="_blank" rel="noopener"></a>
+
+    <label style="margin-top:20px">① 粘贴新的腾讯文档链接</label>
+    <textarea id="docUrl" placeholder="例如：https://docs.qq.com/sheet/DRExxxxxxxx"></textarea>
+    <div class="hint">直接把【腾讯文档】分享链接整段粘进来即可，系统会自动提取文档 ID。</div>
+
+    <span class="adv-toggle" id="advToggle">▸ 更换了不同腾讯账号的文档？点此填新 Token（进阶）</span>
+    <div class="adv" id="advBox">
+      <label>新的 Access-Token（留空则沿用现有）</label>
+      <textarea id="accessToken" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."></textarea>
+      <div class="hint">仅当新文档属于<b>不同腾讯账号</b>、现有 Token 失效（报 401/无权限）时才需要填。同账号换文档通常不用动它。</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="testBtn">② 测试连接</button>
+      <button class="btn btn-ok" id="saveBtn" disabled>③ 保存并生效</button>
+    </div>
+    <div id="testResult" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+let adminKey='';
+let lastTestOk=false;
+
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._tm);t._tm=setTimeout(()=>t.classList.remove('show'),2200);}
+function api(path,opts){
+  opts=opts||{};
+  opts.headers=Object.assign({'Content-Type':'application/json','X-Admin-Key':adminKey},opts.headers||{});
+  return fetch(path,opts).then(async r=>{const d=await r.json().catch(()=>({}));return{status:r.status,data:d};});
+}
+
+// 登录
+$('loginBtn').addEventListener('click',doLogin);
+$('adminKey').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+async function doLogin(){
+  adminKey=$('adminKey').value.trim();
+  if(!adminKey){toast('请输入口令');return;}
+  const {status,data}=await api('/api/qq-doc/config');
+  if(status===401){toast('口令错误');adminKey='';return;}
+  if(status!==200){toast('加载失败：'+(data.error||status));return;}
+  $('loginCard').classList.add('hidden');
+  $('configCard').classList.remove('hidden');
+  try{localStorage.setItem('admin_key',adminKey);}catch(e){}
+  renderCurrent(data);
+}
+
+function renderCurrent(d){
+  $('curFileId').textContent=d.fileId||'（未设置）';
+  $('curToken').textContent=d.hasToken?d.accessTokenMasked:'（未配置）';
+  const link=$('curDocLink');
+  if(d.docUrl){link.textContent='🔗 '+d.docUrl;link.href=d.docUrl;}else{link.textContent='';}
+  const st=$('curStatus');
+  if(!d.hasToken){st.innerHTML='<div class="status err">⚠️ 尚未配置 Access-Token，同步功能不可用</div>';}
+  else{st.innerHTML='<div class="status ok">✅ 配置已就绪'+(d.source==='file'?'（来自后台保存）':'（来自默认值）')+'</div>';}
+}
+
+// 新链接变化时，重置保存按钮（必须重新测试通过才能保存）
+['docUrl','accessToken'].forEach(id=>$(id).addEventListener('input',()=>{lastTestOk=false;$('saveBtn').disabled=true;}));
+
+// 进阶区展开
+$('advToggle').addEventListener('click',()=>{
+  const box=$('advBox');box.classList.toggle('show');
+  $('advToggle').textContent=(box.classList.contains('show')?'▾ ':'▸ ')+'更换了不同腾讯账号的文档？点此填新 Token（进阶）';
+});
+
+function payload(){
+  return {docUrl:$('docUrl').value.trim(),accessToken:$('accessToken').value.trim()};
+}
+
+// 测试连接
+$('testBtn').addEventListener('click',async()=>{
+  const p=payload();
+  if(!p.docUrl){toast('请先粘贴文档链接');return;}
+  const btn=$('testBtn');btn.disabled=true;btn.innerHTML='<span class="spin"></span> 测试中';
+  const {data}=await api('/api/qq-doc/test',{method:'POST',body:JSON.stringify(p)});
+  btn.disabled=false;btn.textContent='② 测试连接';
+  const box=$('testResult');
+  if(data.ok){
+    lastTestOk=true;$('saveBtn').disabled=false;
+    box.innerHTML='<div class="status ok">✅ 连接成功！文档 ID：'+data.fileId+'，共 '+data.sheetCount+' 个工作表</div>'+
+      '<div class="sheets">'+data.sheetTitles.map(t=>'<span class="tag">'+t+'</span>').join('')+'</div>'+
+      '<div class="hint" style="margin-top:8px">确认无误后点「保存并生效」。</div>';
+  }else{
+    lastTestOk=false;$('saveBtn').disabled=true;
+    box.innerHTML='<div class="status err">❌ 连接失败：'+(data.error||'未知错误')+'</div>'+
+      '<div class="hint" style="margin-top:6px">若提示无权限/401，说明新文档属于不同腾讯账号，请展开上方「进阶」填入新 Token 再试。</div>';
+  }
+});
+
+// 保存
+$('saveBtn').addEventListener('click',async()=>{
+  if(!lastTestOk){toast('请先测试连接通过');return;}
+  const btn=$('saveBtn');btn.disabled=true;btn.innerHTML='<span class="spin"></span> 保存中';
+  const {data}=await api('/api/qq-doc/config',{method:'POST',body:JSON.stringify(payload())});
+  btn.textContent='③ 保存并生效';
+  if(data.ok){
+    toast('✅ '+(data.note||'已保存'));
+    // 刷新当前配置显示
+    const {data:cur}=await api('/api/qq-doc/config');
+    renderCurrent(cur);
+    $('docUrl').value='';$('accessToken').value='';$('testResult').innerHTML='';
+    if(!data.persisted){
+      $('testResult').innerHTML='<div class="status warn">⚠️ 配置已生效，但写入持久化文件失败。容器重建后可能丢失，请检查 Sealos 的 CONFIG_DIR 是否指向持久卷。</div>';
+    }
+  }else{
+    btn.disabled=false;
+    toast('保存失败：'+(data.error||''));
+  }
+});
+
+// 自动用上次口令登录
+(function(){try{const k=localStorage.getItem('admin_key');if(k){$('adminKey').value=k;doLogin();}}catch(e){}})();
+</script>
+</body>
+</html>

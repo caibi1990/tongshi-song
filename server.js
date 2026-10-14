@@ -384,12 +384,69 @@ app.get('/api/tts-say', async (req, res) => {
 });
 
 // --- QQ Docs (腾讯文档) Integration ---
-const QQ_DOC = {
+// 配置来源优先级：持久化配置文件 > 环境变量 > 硬编码默认值。
+// 体育老师经常换文档链接，后台 admin.html 可直接改并写入配置文件，改完即时生效、无需重部署。
+// 配置目录用 CONFIG_DIR 环境变量指定（指向 Sealos 挂载的持久卷），不设则落在应用目录下。
+const CONFIG_DIR = process.env.CONFIG_DIR || path.join(__dirname, 'data');
+const QQ_CONFIG_FILE = path.join(CONFIG_DIR, 'qq-doc-config.json');
+
+// 默认值（首次部署、配置文件还不存在时用）
+const QQ_DOC_DEFAULTS = {
   fileId: 'DREFsWWdDTGpneWNO',
   clientId: process.env.QQ_DOC_CLIENT_ID || '542a94f67e894e1cbc6c8eb2fcf5a5d8',
   accessToken: process.env.QQ_DOC_ACCESS_TOKEN || '',
   openId: process.env.QQ_DOC_OPEN_ID || 'a263363ce9d746738a5393d90a809644',
 };
+
+// 可变配置对象（运行时可被后台修改）
+let QQ_DOC = Object.assign({}, QQ_DOC_DEFAULTS);
+
+// 从 URL 里提取腾讯文档 fileId：https://docs.qq.com/sheet/XXXX -> XXXX
+function extractFileId(input) {
+  if (!input) return '';
+  const s = String(input).trim();
+  const m = s.match(/docs\.qq\.com\/(?:sheet|doc|slide|form)\/([A-Za-z0-9]+)/);
+  if (m) return m[1];
+  // 没匹配到就当作已经是纯 fileId（只保留合法字符）
+  return s.replace(/[^A-Za-z0-9]/g, '');
+}
+
+// 加载持久化配置（启动时调用）
+function loadQQConfig() {
+  try {
+    if (fs.existsSync(QQ_CONFIG_FILE)) {
+      const saved = JSON.parse(fs.readFileSync(QQ_CONFIG_FILE, 'utf8'));
+      // 只接受已知字段，缺的用默认补齐
+      QQ_DOC = {
+        fileId: saved.fileId || QQ_DOC_DEFAULTS.fileId,
+        clientId: saved.clientId || QQ_DOC_DEFAULTS.clientId,
+        accessToken: saved.accessToken || QQ_DOC_DEFAULTS.accessToken,
+        openId: saved.openId || QQ_DOC_DEFAULTS.openId,
+      };
+      console.log('QQ Doc config loaded from file:', QQ_CONFIG_FILE, '| fileId=', QQ_DOC.fileId);
+    } else {
+      console.log('QQ Doc config file not found, using defaults | fileId=', QQ_DOC.fileId);
+    }
+  } catch (e) {
+    console.error('加载腾讯文档配置失败，回退默认值:', e.message);
+    QQ_DOC = Object.assign({}, QQ_DOC_DEFAULTS);
+  }
+}
+
+// 保存配置到持久化文件
+function saveQQConfig() {
+  try {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(QQ_CONFIG_FILE, JSON.stringify(QQ_DOC, null, 2));
+    console.log('QQ Doc config saved:', QQ_CONFIG_FILE);
+    return true;
+  } catch (e) {
+    console.error('保存腾讯文档配置失败:', e.message);
+    return false;
+  }
+}
+
+loadQQConfig();
 
 // Caches
 let qqSheetCache = {};
@@ -476,6 +533,119 @@ app.get('/api/qq-doc/names', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ===== 后台管理：腾讯文档配置 =====
+// 简单口令保护：请求头 X-Admin-Key 需匹配 ADMIN_KEY 环境变量（默认 admin888）。
+// 仅家长自用，口令用于防止误触/外部乱改，不是强安全边界。
+const ADMIN_KEY = process.env.ADMIN_KEY || 'admin888';
+function requireAdmin(req, res) {
+  const key = req.headers['x-admin-key'] || '';
+  if (key !== ADMIN_KEY) { res.status(401).json({ error: '口令错误' }); return false; }
+  return true;
+}
+// token 脱敏：只显示首尾，中间打码
+function maskToken(t) {
+  if (!t) return '';
+  if (t.length <= 12) return '****';
+  return t.slice(0, 6) + '****' + t.slice(-6);
+}
+
+// 用一组配置试连腾讯文档，成功则返回工作表标题列表
+async function qqTryConnect(cfg) {
+  const res = await fetch(
+    `https://docs.qq.com/openapi/spreadsheet/v3/files/${cfg.fileId}`,
+    { headers: { 'Access-Token': cfg.accessToken, 'Client-Id': cfg.clientId, 'Open-Id': cfg.openId } }
+  );
+  const status = res.status;
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  // 注意：腾讯文档 OpenAPI 即使鉴权失败也返回 HTTP 200，真正的错误码在 body.code 里
+  // （成功时没有 code 或 code===0，并带 properties 数组）。所以不能只看 HTTP 状态。
+  if (status !== 200) {
+    const msg = (data && (data.msg || data.message)) || `HTTP ${status}`;
+    throw new Error(msg);
+  }
+  if (data && data.code && data.code !== 0) {
+    throw new Error(`${data.message || '鉴权/请求失败'}（错误码 ${data.code}）`);
+  }
+  if (!data || !Array.isArray(data.properties)) {
+    throw new Error((data && data.message) || '返回数据异常，可能是文档ID或权限问题');
+  }
+  const titles = data.properties.map(p => p.title);
+  return titles;
+}
+
+// GET 读当前配置（token 脱敏），顺带校验空字段
+app.get('/api/qq-doc/config', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json({
+    fileId: QQ_DOC.fileId,
+    clientId: QQ_DOC.clientId,
+    openId: QQ_DOC.openId,
+    accessTokenMasked: maskToken(QQ_DOC.accessToken),
+    hasToken: !!QQ_DOC.accessToken,
+    docUrl: QQ_DOC.fileId ? `https://docs.qq.com/sheet/${QQ_DOC.fileId}` : '',
+    source: fs.existsSync(QQ_CONFIG_FILE) ? 'file' : 'default',
+  });
+});
+
+// POST 试连：用提交的配置（可只提交部分字段，缺的沿用当前）测试能否连通
+app.post('/api/qq-doc/test', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const b = req.body || {};
+    const cfg = {
+      fileId: b.docUrl != null || b.fileId != null ? extractFileId(b.docUrl || b.fileId) : QQ_DOC.fileId,
+      clientId: b.clientId || QQ_DOC.clientId,
+      // accessToken 为空字符串表示"不改"，沿用当前；非空才覆盖
+      accessToken: (b.accessToken && b.accessToken.trim()) ? b.accessToken.trim() : QQ_DOC.accessToken,
+      openId: b.openId || QQ_DOC.openId,
+    };
+    if (!cfg.fileId) return res.status(400).json({ ok: false, error: '文档链接/fileId 不能为空' });
+    if (!cfg.accessToken) return res.status(400).json({ ok: false, error: 'Access-Token 未配置' });
+    const titles = await qqTryConnect(cfg);
+    res.json({ ok: true, fileId: cfg.fileId, sheetTitles: titles, sheetCount: titles.length });
+  } catch (err) {
+    res.status(200).json({ ok: false, error: err.message });
+  }
+});
+
+// POST 保存：先试连验证，通过才写入配置文件并即时生效
+app.post('/api/qq-doc/config', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const b = req.body || {};
+    const next = {
+      fileId: (b.docUrl != null || b.fileId != null) ? extractFileId(b.docUrl || b.fileId) : QQ_DOC.fileId,
+      clientId: b.clientId || QQ_DOC.clientId,
+      accessToken: (b.accessToken && b.accessToken.trim()) ? b.accessToken.trim() : QQ_DOC.accessToken,
+      openId: b.openId || QQ_DOC.openId,
+    };
+    if (!next.fileId) return res.status(400).json({ ok: false, error: '文档链接/fileId 不能为空' });
+    if (!next.accessToken) return res.status(400).json({ ok: false, error: 'Access-Token 未配置' });
+
+    // 保存前强制试连，避免把一个连不通的配置写进去导致线上同步全挂
+    let titles;
+    try { titles = await qqTryConnect(next); }
+    catch (e) { return res.status(200).json({ ok: false, error: '配置无法连通，未保存：' + e.message }); }
+
+    QQ_DOC = next;
+    const saved = saveQQConfig();
+    // 配置变了，清掉旧文档的缓存，让新文档立即生效
+    qqSheetCache = {};
+    qqNamesCache = null;
+    res.json({ ok: true, persisted: saved, fileId: QQ_DOC.fileId, sheetTitles: titles, sheetCount: titles.length,
+      note: saved ? '已保存并生效' : '已生效，但写入配置文件失败（重启后可能丢失，检查 CONFIG_DIR 持久化）' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 公开只读：前端 jump-rope 页拿当前文档链接用（不含任何密钥）
+app.get('/api/qq-doc/public-url', (req, res) => {
+  res.json({ docUrl: QQ_DOC.fileId ? `https://docs.qq.com/sheet/${QQ_DOC.fileId}` : '' });
+});
+
 
 // Write jump rope record to QQ Doc
 // taskSec: 180/60/30, count: number, dateStr: YYYY-MM-DD, targetRow: number (0-based)
