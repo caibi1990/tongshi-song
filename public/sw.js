@@ -11,10 +11,13 @@
  *
  * 换了模型或运行时，把 CACHE 的版本号 +1 即可让旧缓存失效。
  */
-const CACHE = 'jump-assets-v1';
+const CACHE = 'jump-assets-v2';
 
 // 只接管这些目录，其它请求原样走网络
-const ASSET_RE = /^\/(?:vendor\/mediapipe\/|models\/|audio\/jump\/)/;
+// - vendor/mediapipe、models：跳绳摄像头用的大体积运行时/模型
+// - audio/jump：跳绳语音片段
+// - audio/english：英语听力教材（托管音频，缓存后可离线复听）
+const ASSET_RE = /^\/(?:vendor\/mediapipe\/|models\/|audio\/jump\/|audio\/english\/)/;
 
 self.addEventListener('install', () => {
   // 不预缓存：模型只有开了摄像头才需要，替没相机需求的用户下 15MB 不合适
@@ -33,6 +36,8 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
+const AUDIO_RE = /^\/audio\/(?:jump|english)\//;
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -42,20 +47,74 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (!ASSET_RE.test(url.pathname)) return;   // 非重资源：不干预
 
+  // 音频：可能带 Range(206) —— 单独处理，保证能离线缓存并支持拖动进度
+  if (AUDIO_RE.test(url.pathname)) {
+    event.respondWith(handleAudio(req, url));
+    return;
+  }
+
+  // 其余大资源（MediaPipe 运行时 / 模型 / 跳绳整文件 fetch）：cache-first，只存 200 basic
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-
-    // ignoreVary：网关可能加 Vary: Accept-Encoding，避免因此匹配不上
     const hit = await cache.match(req, { ignoreVary: true });
     if (hit) return hit;
-
     const res = await fetch(req);
-
-    // 只存完整成功的同源响应；206 / opaque 一律不存，
-    // 否则 WebAssembly.instantiateStreaming 会因为 MIME 或分片而失败
     if (res && res.status === 200 && res.type === 'basic') {
       cache.put(req, res.clone()).catch(() => {});
     }
     return res;
   })());
 });
+
+/**
+ * 音频缓存：音频元素常发 Range 请求（返回 206），标准 cache-first 存不住。
+ * 这里始终以「完整文件」为缓存键（忽略 Range），缓存整段音频；
+ * 若请求带 Range，则从完整缓存里切片、以 206 返回，满足拖动进度 / seek。
+ */
+async function handleAudio(req, url) {
+  const cache = await caches.open(CACHE);
+  // 缓存键用不带 Range 的纯 URL，保证整段只存一份
+  const fullKey = new Request(url.pathname);
+  let full = await cache.match(fullKey, { ignoreVary: true });
+
+  if (!full) {
+    try {
+      // 主动拉完整文件（不透传 Range），存一份完整副本
+      const fetched = await fetch(url.pathname);
+      if (fetched && fetched.status === 200) {
+        cache.put(fullKey, fetched.clone()).catch(() => {});
+        full = fetched;
+      } else {
+        // 拉不到完整文件就直接透传原始请求
+        return fetch(req);
+      }
+    } catch (e) {
+      return fetch(req);  // 离线且没缓存：只能失败，交给页面友好提示
+    }
+  }
+
+  const range = req.headers.get('range');
+  if (!range) return full.clone();
+
+  // 解析 "bytes=start-end"，从完整内容切片
+  const buf = await full.clone().arrayBuffer();
+  const total = buf.byteLength;
+  const m = /bytes=(\d*)-(\d*)/.exec(range);
+  let start = m && m[1] ? parseInt(m[1], 10) : 0;
+  let end = m && m[2] ? parseInt(m[2], 10) : total - 1;
+  if (isNaN(start)) start = 0;
+  if (isNaN(end) || end >= total) end = total - 1;
+  if (start > end || start >= total) {
+    return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${total}` } });
+  }
+  const chunk = buf.slice(start, end + 1);
+  return new Response(chunk, {
+    status: 206,
+    headers: {
+      'Content-Type': full.headers.get('Content-Type') || 'audio/mpeg',
+      'Content-Range': `bytes ${start}-${end}/${total}`,
+      'Content-Length': String(chunk.byteLength),
+      'Accept-Ranges': 'bytes',
+    },
+  });
+}
